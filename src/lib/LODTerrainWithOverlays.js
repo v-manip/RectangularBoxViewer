@@ -182,7 +182,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         //                 #ifdef GL_ES
         //                   precision highp float;
         //                 #endif
-                        
+
         //                 uniform sampler2D tex;
         //                 uniform samplerCube cube;
         //                 uniform sampler2D bump;
@@ -191,20 +191,28 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         //         ...
         // </ConposedShader>
 
-        var textureN = document.createElement('Texture');
-        textureN.setAttribute('hideChildren', 'true');
-        textureN.setAttribute("repeatS", 'true');
-        textureN.setAttribute("repeatT", 'true');
-        textureN.setAttribute("scale", "false");
-        textureN.appendChild(opts.texture_descriptions[0].textureEl);
+        var multiTextureN = document.createElement('MultiTexture')
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
 
-        var textureTransformN = document.createElement('TextureTransform');
-        textureTransformN.setAttribute("scale", "1,-1");
-        if (opts.upright) {
-            textureTransformN.setAttribute("rotation", "-1.57");
+            var textureN = document.createElement('Texture');
+            textureN.setAttribute('hideChildren', 'true');
+            textureN.setAttribute("repeatS", 'true');
+            textureN.setAttribute("repeatT", 'true');
+            textureN.setAttribute("scale", "false");
+            textureN.appendChild(desc.textureEl);
+
+            var textureTransformN = document.createElement('TextureTransform');
+            textureTransformN.setAttribute("scale", "1,-1");
+            if (opts.upright) {
+                textureTransformN.setAttribute("rotation", "-1.57");
+            }
+            multiTextureN.appendChild(textureTransformN);
+
+            multiTextureN.appendChild(textureN);
         }
-        appearanceN.appendChild(textureTransformN);
-        appearanceN.appendChild(textureN);
+
+        appearanceN.appendChild(multiTextureN);
 
         var cShaderN = document.createElement("ComposedShader");
         var diffuseColorFN = document.createElement("field");
@@ -213,29 +221,34 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         diffuseColorFN.setAttribute("value", "1 0 1");
         cShaderN.appendChild(diffuseColorFN);
 
-        var transparencyFN = document.createElement("field");
-        transparencyFN.setAttribute("id", opts.name + '_transparency_for_' + opts.texture_descriptions[0].id);
-        transparencyFN.setAttribute("name", "transparency_" + opts.texture_descriptions[0].id);
-        transparencyFN.setAttribute("type", "SFFloat");
-        transparencyFN.setAttribute("value", "1");
-        cShaderN.appendChild(transparencyFN);
-
-        this.transparencyFNs[opts.name + '_transparency_for_' + opts.texture_descriptions[0].id] = transparencyFN;
-        // Testing only:
-        var fadeOut = function() {
-            var value = transparencyFN.getAttribute('value');
-            transparencyFN.setAttribute("value", String(value - 0.1));
-            setTimeout(fadeOut, 200);
-        };
-        setTimeout(fadeOut, 5000);
-
         var tex_idx = 0;
-        var textureIdFN = document.createElement("field");
-        textureIdFN.setAttribute("id", opts.name + '_texture_for_' + opts.texture_descriptions[0].id);
-        textureIdFN.setAttribute("name", "tex_" + opts.texture_descriptions[0].id);
-        textureIdFN.setAttribute("type", "SFFloat");
-        textureIdFN.setAttribute("value", tex_idx);
-        cShaderN.appendChild(textureIdFN);
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
+
+            var transparencyFN = document.createElement("field");
+            transparencyFN.setAttribute("id", opts.name + '_transparency_for_' + desc.id);
+            transparencyFN.setAttribute("name", "transparency_" + desc.id);
+            transparencyFN.setAttribute("type", "SFFloat");
+            transparencyFN.setAttribute("value", "1");
+            cShaderN.appendChild(transparencyFN);
+
+            this.transparencyFNs[opts.name + '_transparency_for_' + desc.id] = transparencyFN;
+
+            // // Testing only:
+            // var fadeOut = function() {
+            //     var value = transparencyFN.getAttribute('value');
+            //     transparencyFN.setAttribute("value", String(value - 0.1));
+            //     setTimeout(fadeOut, 200);
+            // };
+            // setTimeout(fadeOut, 5000);
+
+            var textureIdFN = document.createElement("field");
+            textureIdFN.setAttribute("id", opts.name + '_texture_for_' + desc.id);
+            textureIdFN.setAttribute("name", "tex_" + desc.id);
+            textureIdFN.setAttribute("type", "SFFloat");
+            textureIdFN.setAttribute("value", tex_idx++);
+            cShaderN.appendChild(textureIdFN);
+        };
 
         var vertexCode = "attribute vec3 position; \n";
         vertexCode += "uniform mat4 modelViewProjectionMatrix; \n";
@@ -253,11 +266,35 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         fragmentCode += "precision highp float; \n";
         fragmentCode += "#endif \n";
         fragmentCode += "uniform vec3 diffuseColor; \n";
-        fragmentCode += "uniform float transparency_" + opts.texture_descriptions[0].id + "; \n";
-        fragmentCode += "uniform sampler2D tex_" + opts.texture_descriptions[0].id + "; \n";
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
+
+            fragmentCode += "uniform float transparency_" + desc.id + "; \n";
+            fragmentCode += "uniform sampler2D tex_" + desc.id + "; \n";
+        }
         fragmentCode += "varying vec2 fragTexCoord; \n";
         fragmentCode += "void main() { \n";
-        fragmentCode += "gl_FragColor = texture2D(tex_" + opts.texture_descriptions[0].id + ", fragTexCoord); } \n";
+        fragmentCode += "vec4 mixedColor = vec4(0,0,0,1); \n";
+        // fragmentCode += "vec3 c = vec3(1,0,0); \n";
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
+            // fragmentCode += "gl_FragColor = texture2D(tex_" + desc.id + ", fragTexCoord); \n";
+            fragmentCode += "vec4 color" + idx + " = texture2D(tex_" + desc.id + ", fragTexCoord); \n";
+            if (idx == 0) {
+                fragmentCode += "mixedColor = color0; \n";
+            } else {
+                var line = "mixedColor = mix(mixedColor, color" + idx + ", 0.5);\n";
+                // var line = "mixedColor = mix(color0, color1, 0.5);\n";
+                //console.log('idx: ' + idx + " / " + line);
+                fragmentCode += line;
+                //fragmentCode += "vec4 color" + idx + " = mix(color" + (idx-1) + ", color" + idx + ", 0.5)\n";
+            }
+        }
+        // fragmentCode += "gl_FragColor = mix(color0, color1, 0.5); \n";
+        fragmentCode += "gl_FragColor = mixedColor; \n";
+        // fragmentCode += "gl_FragColor = vec4(0,1,1,1); \n";
+        // fragmentCode += "gl_FragColor = color1; \n";
+        fragmentCode += "} \n";
         //fragmentCode += "gl_FragColor = vec4(diffuseColor, transparency_" + opts.texture_descriptions[0].id + "); } \n";
 
         var shaderPartFragment = document.createElement("shaderPart");
