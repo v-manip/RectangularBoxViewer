@@ -1,0 +1,22 @@
+{
+  "name": "RectangularBoxViewer",
+  "version": "0.1.0",
+  "homepage": "https://github.com/v-manip/RectangularBoxViewer",
+  "authors": [
+    "Martin Hecher <martin.hecher@fraunhofer.at>"
+  ],
+  "description": "RectangularBoxViewer module for the VMANIP project",
+  "main": "src/scene.js",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "backbone": "~1.1.1",
+    "backbone.wreqr": "~1.0.0"
+  }
+}
