@@ -34,9 +34,10 @@ RBV.Models.DemWithOverlays.prototype.setDemProvider = function(provider) {
 RBV.Models.DemWithOverlays.prototype.addImageryProvider = function(provider) {
     this.imageryProviders.push(provider);
 
-    // this.listenTo(provider, 'opacity:change', function(model, value) {
-    //     console.log('Provider "' + model.id + '" changed opacity to "' + value + '"');
-    // });
+    // Connect to transparency change events:
+    provider.on('change:opacity', function(layer, value) {
+        this.terrain.setTransparencyFor(layer.get('id'), (1 - value));
+    }.bind(this));
 };
 
 /**
@@ -82,7 +83,7 @@ RBV.Models.DemWithOverlays.prototype.createModel = function(root, cubeSizeX, cub
     });
 
     var podDemProvider = this.demRequest.toJSON();
-    
+
     EarthServerGenericClient.getDEMWithOverlays(this, {
         dem: podDemProvider,
         imagery: podImageryProviders,
@@ -111,6 +112,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
             }
         }
 
+        // textureResponses.reverse();
         var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
         var transform = this.createTransform(demResponse.width, YResolution, demResponse.height, parseFloat(demResponse.minHMvalue), demResponse.minXvalue, demResponse.minZvalue);
         this.root.appendChild(transform);
