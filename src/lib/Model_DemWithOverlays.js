@@ -33,6 +33,10 @@ RBV.Models.DemWithOverlays.prototype.setDemProvider = function(provider) {
  */
 RBV.Models.DemWithOverlays.prototype.addImageryProvider = function(provider) {
     this.imageryProviders.push(provider);
+
+    // this.listenTo(provider, 'opacity:change', function(model, value) {
+    //     console.log('Provider "' + model.id + '" changed opacity to "' + value + '"');
+    // });
 };
 
 /**
@@ -71,9 +75,17 @@ RBV.Models.DemWithOverlays.prototype.createModel = function(root, cubeSizeX, cub
     this.root = root;
     this.createPlaceHolder();
 
+    // Convert the original Backbone.Model layers to 'plain-old-data' javascript objects:
+    var podImageryProviders = [];
+    _.each(this.imageryProviders, function(layer, idx) {
+        podImageryProviders.push(layer.toJSON());
+    });
+
+    var podDemProvider = this.demRequest.toJSON();
+    
     EarthServerGenericClient.getDEMWithOverlays(this, {
-        dem: this.demRequest,
-        imagery: this.imageryProviders,
+        dem: podDemProvider,
+        imagery: podImageryProviders,
         bbox: bbox,
         timespan: this.timespan,
         resX: this.XResolution,

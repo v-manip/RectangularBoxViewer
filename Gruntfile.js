@@ -13,12 +13,7 @@ module.exports = function(grunt) {
 			dist: {
 				files: {
 					'dist/<%= pkg.name %>.debug.js': ['src/viewer.js', 'src/**/*.js'],
-					'dist/<%= pkg.name %>-deps.debug.js': [
-						'deps/*.js',
-						'vendor/underscore/underscore.js',
-						'vendor/backbone/backbone.js',
-						'vendor/backbone.wreqr/lib/backbone.wreqr.js'
-					]
+					'dist/<%= pkg.name %>-deps.debug.js': ['deps/*.js']
 				}
 			}
 		},
