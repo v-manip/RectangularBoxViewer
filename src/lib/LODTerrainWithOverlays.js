@@ -225,11 +225,6 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
             appearanceN.appendChild(multiTextureN);
 
             var cShaderN = document.createElement('ComposedShader');
-            var diffuseColorFN = document.createElement('field');
-            diffuseColorFN.setAttribute('name', 'diffuseColor');
-            diffuseColorFN.setAttribute('type', 'SFVec3f');
-            diffuseColorFN.setAttribute('value', '1 0 1');
-            cShaderN.appendChild(diffuseColorFN);
 
             var tex_idx = 0;
             for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
@@ -261,6 +256,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
             };
 
             var vertexCode = 'attribute vec3 position; \n';
+            vertexCode += 'attribute vec3 texcoord; \n';
             vertexCode += 'uniform mat4 modelViewProjectionMatrix; \n';
             vertexCode += 'varying vec2 fragTexCoord; \n';
             vertexCode += 'void main() { \n';
