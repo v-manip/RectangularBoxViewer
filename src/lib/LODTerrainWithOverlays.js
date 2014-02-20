@@ -87,7 +87,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
             });
         };
 
-        var appearances = this.configureAppearances({
+        var appearances = this.createAppearances({
             name: 'TerrainApp_' + this.index,
             lodCounts: 3,
             modelIndex: this.index,
@@ -126,7 +126,167 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         // lodNode = null;
     };
 
+    this.createShaderN = function(texture_descriptions, namespace) {
+        // <ComposedShader DEF='ComposedShader'>
+        //           <field name='tex_a' type='SFInt32' value='0'/>
+        //           <field name='tex_b' type='SFInt32' value='1'/>
+        //           <field name='tex_c' type='SFInt32' value='2'/> 
+
+        //         <ShaderPart type='FRAGMENT'>
+        //                 #ifdef GL_ES
+        //                   precision highp float;
+        //                 #endif
+
+        //                 uniform sampler2D tex_a;
+        //                 uniform samplerCube tex_b;
+        //                 uniform sampler2D tex_c;
+        //                 ...
+        //         </ShaderPart>
+        //         ...
+        // </ConposedShader>
+
+        // TODO: read static parts of the shader from the DOM and insert only dynamic parts here:
+        // Rough idea:
+        // var myshader = document.getElementById('myshader');
+        // var shader = $('#myshader').clone().attr('id', AppearanceName + '_mat');
+
+        var shaderN = document.createElement('ComposedShader');
+
+        var tex_idx = 0;
+        for (var idx = 0; idx < texture_descriptions.length; idx++) {
+            var desc = texture_descriptions[idx];
+
+            var transparencyFN = document.createElement('field');
+            transparencyFN.setAttribute('id', namespace + '_transparency_for_' + desc.id);
+            transparencyFN.setAttribute('name', 'transparency_' + desc.id);
+            transparencyFN.setAttribute('type', 'SFFloat');
+            transparencyFN.setAttribute('value', '1');
+            shaderN.appendChild(transparencyFN);
+
+            this.transparencysFN[namespace + '_transparency_for_' + desc.id] = transparencyFN;
+
+            var textureIdFN = document.createElement('field');
+            textureIdFN.setAttribute('id', namespace + '_texture_for_' + desc.id);
+            textureIdFN.setAttribute('name', 'tex_' + desc.id);
+            textureIdFN.setAttribute('type', 'SFFloat');
+            textureIdFN.setAttribute('value', tex_idx++);
+            shaderN.appendChild(textureIdFN);
+        };
+
+        var vertexCode = 'attribute vec3 position; \n';
+        vertexCode += 'attribute vec3 texcoord; \n';
+        vertexCode += 'uniform mat4 modelViewProjectionMatrix; \n';
+        vertexCode += 'varying vec2 fragTexCoord; \n';
+        vertexCode += 'void main() { \n';
+        vertexCode += 'fragTexCoord = vec2(texcoord.x, 1.0 - texcoord.y);\n';
+        vertexCode += 'gl_Position = modelViewProjectionMatrix * vec4(position, 1.0); }\n';
+        var shaderPartVertex = document.createElement('shaderPart');
+        shaderPartVertex.setAttribute('type', 'VERTEX');
+        shaderPartVertex.innerHTML = vertexCode;
+        shaderN.appendChild(shaderPartVertex);
+
+        var fragmentCode = '#ifdef GL_ES \n';
+        fragmentCode += 'precision highp float; \n';
+        fragmentCode += '#endif \n';
+        fragmentCode += 'varying vec2 fragTexCoord; \n';
+        for (var idx = 0; idx < texture_descriptions.length; idx++) {
+            var desc = texture_descriptions[idx];
+            fragmentCode += 'uniform float transparency_' + desc.id + '; \n';
+            fragmentCode += 'uniform sampler2D tex_' + desc.id + '; \n';
+        }
+
+        // Blending equation:
+        // (see http://en.wikibooks.org/wiki/GLSL_Programming/Unity/Transparency)
+        //
+        // TODO: Think of integrating http://mouaif.wordpress.com/?p=94
+        //
+        // vec4 result = SrcFactor * colorOnTop + DstFactor * colorBelow;
+        //
+        // To implement a special blending mode, SrcFactor and DstFactor have to
+        // be chosen correctly:
+        //
+        // * Alpha blending:
+        // -----------------
+        //
+        //   SrcFactor = SrcAlpha = vec4(gl_FragColor.a)
+        //   DstFactor = OneMinusSrcAlpha = vec4(1.0 - gl_FragColor.a)
+        //
+        // Corresponding GLSL code:
+        fragmentCode += 'vec4 alphaBlend(vec4 colorOnTop, vec4 colorBelow) {        \n';
+        fragmentCode += '  vec4 srcFac = vec4(colorOnTop.a);                        \n';
+        fragmentCode += '  vec4 dstFac = vec4(1.0 - colorOnTop.a);                  \n';
+        fragmentCode += '                                                           \n';
+        fragmentCode += '  vec4 result = srcFac * colorOnTop + dstFac * colorBelow; \n';
+        fragmentCode += '  return result;                                           \n';
+        fragmentCode += '}                                                          \n';
+
+        fragmentCode += 'void main() { \n';
+        for (var idx = 0; idx < texture_descriptions.length; idx++) {
+            var desc = texture_descriptions[idx];
+            fragmentCode += '  vec4 color' + idx + ' = texture2D(tex_' + desc.id + ', fragTexCoord); \n';
+            fragmentCode += '  color' + idx + ' = color' + idx + ' * transparency_' + desc.id + '; \n';
+            if (idx == 0) {
+                fragmentCode += '  vec4 colorOnTop = color0; \n';
+            } else {
+                fragmentCode += '  colorOnTop = alphaBlend(colorOnTop, color' + idx + '); \n';
+            }
+        }
+        fragmentCode += '  gl_FragColor = colorOnTop; \n';
+        fragmentCode += '} \n';
+
+        // console.log('fragmentCode:\n' + fragmentCode);
+
+        var shaderPartFragment = document.createElement('shaderPart');
+        shaderPartFragment.setAttribute('type', 'FRAGMENT');
+        shaderPartFragment.innerHTML = fragmentCode;
+        shaderN.appendChild(shaderPartFragment);
+
+        return shaderN;
+    };
+
+    this.createMultiTextureN = function(texture_descriptions, namespace) {
+        // <MultiTexture>
+        // <ImageTexture url='texture/earth.jpg' />
+        // <ImageTexture url='texture/normalMap.png' />
+        // </MultiTexture>
+
+        var multiTextureN = document.createElement('MultiTexture')
+        for (var idx = 0; idx < texture_descriptions.length; idx++) {
+            var desc = texture_descriptions[idx];
+
+            var textureN = document.createElement('Texture');
+            textureN.setAttribute('hideChildren', 'true');
+            textureN.setAttribute('repeatS', 'true');
+            textureN.setAttribute('repeatT', 'true');
+            textureN.setAttribute('scale', 'false');
+            textureN.appendChild(desc.textureEl);
+
+            var textureTransformN = document.createElement('TextureTransform');
+            textureTransformN.setAttribute('scale', '1,-1');
+            if (opts.upright) {
+                textureTransformN.setAttribute('rotation', '-1.57');
+            }
+            multiTextureN.appendChild(textureTransformN);
+
+            multiTextureN.appendChild(textureN);
+        }
+
+        return multiTextureN;
+    };
+
+    this.createMaterialN = function(opts, namespace) {
+        var materialN = document.createElement('material');
+        materialN.setAttribute('specularColor', opts.specularColor);
+        materialN.setAttribute('diffuseColor', opts.diffuseColor);
+        materialN.setAttribute('transparency', opts.transparency);
+        materialN.setAttribute('ID', namespace + '_mat');
+
+        return materialN;
+    };
+
     /**
+     * FIXXME: adapt description!
+     *
      * This function handles the creation and usage of the appearances. It can be called for every shape or LOD that should use a canvasTexture.
      * It returns the amount of appearances specified. For every name only one appearance exits, every other uses it.
      * @param AppearanceName - Name of the appearance. If this name is not set in the array, it will be registered.
@@ -140,7 +300,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
      * @param upright - Flag if the terrain is upright (underground data) and the texture stands upright in the cube.
      * @returns {Array} - Array of appearance nodes. If any error occurs, the function will return null.
      */
-    this.configureAppearances = function(opts) {
+    this.createAppearances = function(opts) {
         var appearanceN = document.createElement('Appearance');
 
         if (opts.transparency === 0) {
@@ -149,181 +309,21 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
             appearanceN.setAttribute('sortType', 'transparent');
         }
 
-        if (this.appearancesN[opts.name]) // use the already defined appearance
-        {
+        if (this.appearancesN[opts.name]) { // use the already defined appearance
             appearanceN.setAttribute("use", this.appearancesN[opts.name]);
         } else {
             this.appearancesN[opts.name] = opts.name;
             appearanceN.setAttribute("id", this.appearancesN[opts.name]);
             appearanceN.setAttribute("def", this.appearancesN[opts.name]);
 
-            var materialN = document.createElement('material');
-            materialN.setAttribute('specularColor', opts.specularColor);
-            materialN.setAttribute('diffuseColor', opts.diffuseColor);
-            materialN.setAttribute('transparency', opts.transparency);
-            materialN.setAttribute('ID', opts.name + '_mat');
+            var materialN = this.createMaterialN(opts, opts.name);
             appearanceN.appendChild(materialN);
 
-            // var myshader = document.getElementById('myshader');
-            // // var shader = myshader.cloneNode(false);
-            // var shader = $('#myshader').clone().attr('id', AppearanceName + '_mat');
-            // appearanceN.appendChild(shader.get()[0]);
-            // console.log('shader: ', shader.get()[0]);
-
-            // <MultiTexture>
-            // <ImageTexture url='texture/earth.jpg' />
-            // <ComposedCubeMapTexture repeatS='false' repeatT='false'>
-            //     <ImageTexture containerField='back' url='texture/generic/BK.png' />
-            //     <ImageTexture containerField='bottom' url='texture/generic/DN.png' />
-            //     <ImageTexture containerField='front' url='texture/generic/FR.png' />
-            //     <ImageTexture containerField='left' url='texture/generic/LF.png' />
-            //     <ImageTexture containerField='right' url='texture/generic/RT.png' />
-            //     <ImageTexture containerField='top' url='texture/generic/UP.png' />
-            // </ComposedCubeMapTexture>
-            // <ImageTexture url='texture/normalMap.png' />
-            // </MultiTexture>
-            //
-            // <ComposedShader DEF='ComposedShader'>
-            //           <field name='tex' type='SFInt32' value='0'/>
-            //           <field name='cube' type='SFInt32' value='1'/>
-            //           <field name='bump' type='SFInt32' value='2'/> 
-
-            //         <ShaderPart type='FRAGMENT'>
-            //                 #ifdef GL_ES
-            //                   precision highp float;
-            //                 #endif
-
-            //                 uniform sampler2D tex;
-            //                 uniform samplerCube cube;
-            //                 uniform sampler2D bump;
-            //                 ...
-            //         </ShaderPart>
-            //         ...
-            // </ConposedShader>
-
-            var multiTextureN = document.createElement('MultiTexture')
-            for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
-                var desc = opts.texture_descriptions[idx];
-
-                var textureN = document.createElement('Texture');
-                textureN.setAttribute('hideChildren', 'true');
-                textureN.setAttribute('repeatS', 'true');
-                textureN.setAttribute('repeatT', 'true');
-                textureN.setAttribute('scale', 'false');
-                textureN.appendChild(desc.textureEl);
-
-                var textureTransformN = document.createElement('TextureTransform');
-                textureTransformN.setAttribute('scale', '1,-1');
-                if (opts.upright) {
-                    textureTransformN.setAttribute('rotation', '-1.57');
-                }
-                multiTextureN.appendChild(textureTransformN);
-
-                multiTextureN.appendChild(textureN);
-            }
-
+            var multiTextureN = this.createMultiTextureN(opts.texture_descriptions, opts.name);
             appearanceN.appendChild(multiTextureN);
 
-            var cShaderN = document.createElement('ComposedShader');
-
-            var tex_idx = 0;
-            for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
-                var desc = opts.texture_descriptions[idx];
-
-                var transparencyFN = document.createElement('field');
-                transparencyFN.setAttribute('id', opts.name + '_transparency_for_' + desc.id);
-                transparencyFN.setAttribute('name', 'transparency_' + desc.id);
-                transparencyFN.setAttribute('type', 'SFFloat');
-                transparencyFN.setAttribute('value', '1');
-                cShaderN.appendChild(transparencyFN);
-
-                this.transparencysFN[opts.name + '_transparency_for_' + desc.id] = transparencyFN;
-
-                // // Testing only:
-                // var fadeOut = function() {
-                //     var value = transparencyFN.getAttribute('value');
-                //     transparencyFN.setAttribute('value', String(value - 0.1));
-                //     setTimeout(fadeOut, 200);
-                // };
-                // setTimeout(fadeOut, 5000);
-
-                var textureIdFN = document.createElement('field');
-                textureIdFN.setAttribute('id', opts.name + '_texture_for_' + desc.id);
-                textureIdFN.setAttribute('name', 'tex_' + desc.id);
-                textureIdFN.setAttribute('type', 'SFFloat');
-                textureIdFN.setAttribute('value', tex_idx++);
-                cShaderN.appendChild(textureIdFN);
-            };
-
-            var vertexCode = 'attribute vec3 position; \n';
-            vertexCode += 'attribute vec3 texcoord; \n';
-            vertexCode += 'uniform mat4 modelViewProjectionMatrix; \n';
-            vertexCode += 'varying vec2 fragTexCoord; \n';
-            vertexCode += 'void main() { \n';
-            vertexCode += 'fragTexCoord = vec2(texcoord.x, 1.0 - texcoord.y);\n';
-            vertexCode += 'gl_Position = modelViewProjectionMatrix * vec4(position, 1.0); }\n';
-            var shaderPartVertex = document.createElement('shaderPart');
-            shaderPartVertex.setAttribute('type', 'VERTEX');
-            shaderPartVertex.innerHTML = vertexCode;
-            cShaderN.appendChild(shaderPartVertex);
-
-            var fragmentCode = '#ifdef GL_ES \n';
-            fragmentCode += 'precision highp float; \n';
-            fragmentCode += '#endif \n';
-            fragmentCode += 'varying vec2 fragTexCoord; \n';
-            for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
-                var desc = opts.texture_descriptions[idx];
-                fragmentCode += 'uniform float transparency_' + desc.id + '; \n';
-                fragmentCode += 'uniform sampler2D tex_' + desc.id + '; \n';
-            }
-
-            // Blending equation:
-            // (see http://en.wikibooks.org/wiki/GLSL_Programming/Unity/Transparency)
-            //
-            // TODO: Think of integrating http://mouaif.wordpress.com/?p=94
-            //
-            // vec4 result = SrcFactor * colorOnTop + DstFactor * colorBelow;
-            //
-            // To implement a special blending mode, SrcFactor and DstFactor have to
-            // be chosen correctly:
-            //
-            // * Alpha blending:
-            // -----------------
-            //
-            //   SrcFactor = SrcAlpha = vec4(gl_FragColor.a)
-            //   DstFactor = OneMinusSrcAlpha = vec4(1.0 - gl_FragColor.a)
-            //
-            // Corresponding GLSL code:
-            fragmentCode += 'vec4 alphaBlend(vec4 colorOnTop, vec4 colorBelow) {        \n';
-            fragmentCode += '  vec4 srcFac = vec4(colorOnTop.a);                        \n';
-            fragmentCode += '  vec4 dstFac = vec4(1.0 - colorOnTop.a);                  \n';
-            fragmentCode += '                                                           \n';
-            fragmentCode += '  vec4 result = srcFac * colorOnTop + dstFac * colorBelow; \n';
-            fragmentCode += '  return result;                                           \n';
-            fragmentCode += '}                                                          \n';
-
-            fragmentCode += 'void main() { \n';
-            for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
-                var desc = opts.texture_descriptions[idx];
-                fragmentCode += '  vec4 color' + idx + ' = texture2D(tex_' + desc.id + ', fragTexCoord); \n';
-                fragmentCode += '  color' + idx + ' = color' + idx + ' * transparency_' + desc.id + '; \n';
-                if (idx == 0) {
-                    fragmentCode += '  vec4 colorOnTop = color0; \n';
-                } else {
-                    fragmentCode += '  colorOnTop = alphaBlend(colorOnTop, color' + idx + '); \n';
-                }
-            }
-            fragmentCode += '  gl_FragColor = colorOnTop; \n';
-            fragmentCode += '} \n';
-
-            // console.log('fragmentCode:\n' + fragmentCode);
-
-            var shaderPartFragment = document.createElement('shaderPart');
-            shaderPartFragment.setAttribute('type', 'FRAGMENT');
-            shaderPartFragment.innerHTML = fragmentCode;
-            cShaderN.appendChild(shaderPartFragment);
-
-            appearanceN.appendChild(cShaderN);
+            var shaderN = this.createShaderN(opts.texture_descriptions, opts.name);
+            appearanceN.appendChild(shaderN);
         }
 
         return [appearanceN];
