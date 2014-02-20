@@ -109,8 +109,13 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                 demResponse = response;
             } else {
                 textureResponses.push(response);
+                // console.log('[RBV.Models.DemWithOverlays::receiveData] received layer: ' + response.layerName + ' / ordinal: ' + response.ordinal);
             }
         }
+
+        var textureResponses = _.sortBy(textureResponses, function(item) {
+            return item.ordinal
+        });
 
         // textureResponses.reverse();
         var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
