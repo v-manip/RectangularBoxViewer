@@ -38,6 +38,31 @@ RBV.Models.DemWithOverlays.prototype.addImageryProvider = function(provider) {
     provider.on('change:opacity', function(layer, value) {
         this.terrain.setTransparencyFor(layer.get('id'), (1 - value));
     }.bind(this));
+
+    if (this.terrain) {
+        this.requestData();
+    }
+};
+
+/**
+ * Removes an imagery request.
+ * @param provider - The provider to be removed
+ */
+RBV.Models.DemWithOverlays.prototype.removeImageryProviderById = function(id) {
+    var provider = _.find(this.imageryProviders, function(item) {
+        return id === item.get('id');
+    });
+
+    if (provider) {
+        var idx = _.indexOf(this.imageryProviders, provider);
+        this.imageryProviders.splice(idx, 1);
+    } else {
+        console.error('[RBV.Models.DemWithOverlays::removeImageryProviderById] Layer "' + id + '" not found!');
+    }
+
+    if (this.terrain) {
+        this.terrain.removeOverlayById(id);
+    }
 };
 
 /**
@@ -48,6 +73,32 @@ RBV.Models.DemWithOverlays.prototype.setTimespan = function(timespan) {
     this.timespan = timespan;
 };
 
+RBV.Models.DemWithOverlays.prototype.update = function(hasNewData) {
+    // No update is needed, as the terrain is not created yet. The pending updates
+    // will be implicitly applied when creating the terrain in 'createModel'.
+    if (!this.terrain) {
+        return;
+    }
+
+    if (hasNewData) {
+        this.requestData();
+    } else { // If a layer was removed simply update the shader:
+        this.updateShader();
+    }
+}
+
+RBV.Models.DemWithOverlays.prototype.setTransparencyFor = function(id, value) {
+    // Find corresponding layer:
+    var layer = _.find(this.imageryProviders, function(layer) {
+        return layer.get('id') === id;
+    });
+
+    if (layer) {
+        layer.set('opacity', value);
+    } else {
+        console.error('[RBV.Models.DemWithOverlays::setTransparencyFor] Layer "' + id + '" not found!');
+    }
+};
 /**
  * Creates the x3d geometry and appends it to the given root node. This is done automatically by the SceneManager.
  * @param root - X3D node to append the model.
@@ -66,7 +117,7 @@ RBV.Models.DemWithOverlays.prototype.createModel = function(root, cubeSizeX, cub
     this.cubeSizeY = cubeSizeY;
     this.cubeSizeZ = cubeSizeZ;
 
-    var bbox = {
+    this.bbox = {
         minLongitude: this.miny,
         maxLongitude: this.maxy,
         minLatitude: this.minx,
@@ -74,77 +125,105 @@ RBV.Models.DemWithOverlays.prototype.createModel = function(root, cubeSizeX, cub
     };
 
     this.root = root;
+
     this.createPlaceHolder();
+    this.requestData();
+};
+
+/**
+ * Requests data based on the available layers and calls 'receiveData' afterwards with the ServerResponses.
+ * The internal logic only requests data that has to be updated.
+ */
+RBV.Models.DemWithOverlays.prototype.requestData = function() {
+    // First find out which data has to be requested:
 
     // Convert the original Backbone.Model layers to 'plain-old-data' javascript objects:
-    var podImageryProviders = [];
+    var requests = [];
     _.each(this.imageryProviders, function(layer, idx) {
-        podImageryProviders.push(layer.toJSON());
+        if (!layer.get('isUpToDate')) {
+            layer.set('isUpToDate', true);
+            requests.push(layer.toJSON());
+        }
     });
 
-    var podDemProvider = this.demRequest.toJSON();
+    if (!this.demRequest.get('isUpToDate')) {
+        this.demRequest.set('isUpToDate', true);
+        requests.push(this.demRequest.toJSON());
+    };
 
-    EarthServerGenericClient.getDEMWithOverlays(this, {
-        dem: podDemProvider,
-        imagery: podImageryProviders,
-        bbox: bbox,
-        timespan: this.timespan,
-        resX: this.XResolution,
-        resZ: this.ZResolution
-    });
+    if (requests.length) {
+        EarthServerGenericClient.sendRequests(this, requests, {
+            bbox: this.bbox,
+            timespan: this.timespan,
+            resX: this.XResolution,
+            resZ: this.ZResolution
+        });
+    }
 };
 
 RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
     if (this.checkReceivedData(serverResponses)) {
-        this.removePlaceHolder();
+        var initialSetup = false;
+        if (!this.terrain) {
+            initialSetup = true;
+        }
 
-        // Distinguish between 'imagery' and 'dem' ServerResponses in the serverResponses
-        // FIXXME: This is clumsy...
-        var demResponse = null;
-        var textureResponses = [];
-        var lastidx = -1;
-        for (var idx = 0; idx < serverResponses.length; ++idx) {
-            var response = serverResponses[idx];
-            if (response.heightmap) {
-                demResponse = response;
-            } else {
-                textureResponses.push(response);
-                // console.log('[RBV.Models.DemWithOverlays::receiveData] received layer: ' + response.layerName + ' / ordinal: ' + response.ordinal);
+        if (initialSetup) {
+            // Setup and create the initial terrain:
+            this.removePlaceHolder();
+
+            // Distinguish between 'imagery' and 'dem' ServerResponses in the serverResponses
+            // FIXXME: This is clumsy...
+            var demResponse = null;
+            var textureResponses = [];
+            var lastidx = -1;
+            for (var idx = 0; idx < serverResponses.length; ++idx) {
+                var response = serverResponses[idx];
+                if (response.heightmap) {
+                    demResponse = response;
+                } else {
+                    textureResponses.push(response);
+                    // console.log('[RBV.Models.DemWithOverlays::receiveData] received layer: ' + response.layerName + ' / ordinal: ' + response.ordinal);
+                }
             }
+
+            var textureResponses = _.sortBy(textureResponses, function(item) {
+                return item.ordinal
+            });
+
+            // textureResponses.reverse();
+            var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
+            var transform = this.createTransform(demResponse.width, YResolution, demResponse.height, parseFloat(demResponse.minHMvalue), demResponse.minXvalue, demResponse.minZvalue);
+            this.root.appendChild(transform);
+
+            //Create Terrain out of the received demResponse
+            EarthServerGenericClient.MainScene.timeLogStart("Update Terrain " + this.name);
+            this.terrain = new RBV.Visualization.LODTerrainWithOverlays({
+                root: transform,
+                demResponse: demResponse,
+                textureResponses: textureResponses,
+                index: this.index,
+                noDataValue: this.noData,
+                demNoDataValue: this.demNoData
+            });
+
+            this.terrain.getAppearances = this.getAppearances;
+            this.terrain.setTransparency = this.setTransparency;
+            this.terrain.createTerrain();
+            EarthServerGenericClient.MainScene.timeLogEnd("Update Terrain " + this.name);
+            this.elevationUpdateBinding();
+            if (this.sidePanels) {
+                this.terrain.createSidePanels(this.transformNode, 1);
+            }
+            EarthServerGenericClient.MainScene.timeLogEnd("Create Model_DEMWithOverlays " + this.name);
+
+            transform = null;
+        } else {
+            var textureResponses = _.sortBy(serverResponses, function(item) {
+                return item.ordinal
+            });
+            this.terrain.addOverlays(textureResponses);
         }
-
-        var textureResponses = _.sortBy(textureResponses, function(item) {
-            return item.ordinal
-        });
-
-        // textureResponses.reverse();
-        var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
-        var transform = this.createTransform(demResponse.width, YResolution, demResponse.height, parseFloat(demResponse.minHMvalue), demResponse.minXvalue, demResponse.minZvalue);
-        this.root.appendChild(transform);
-
-        //Create Terrain out of the received demResponse
-        EarthServerGenericClient.MainScene.timeLogStart("Create Terrain " + this.name);
-        // transform, demResponse, this.index, this.noData, this.demNoData);
-        this.terrain = new RBV.Visualization.LODTerrainWithOverlays({
-            root: transform,
-            demResponse: demResponse,
-            textureResponses: textureResponses,
-            index: this.index,
-            noDataValue: this.noData,
-            demNoDataValue: this.demNoData
-        });
-
-        this.terrain.getAppearances = this.getAppearances;
-        this.terrain.setTransparency = this.setTransparency;
-        this.terrain.createTerrain();
-        EarthServerGenericClient.MainScene.timeLogEnd("Create Terrain " + this.name);
-        this.elevationUpdateBinding();
-        if (this.sidePanels) {
-            this.terrain.createSidePanels(this.transformNode, 1);
-        }
-        EarthServerGenericClient.MainScene.timeLogEnd("Create Model " + this.name);
-
-        transform = null;
     }
 };
 

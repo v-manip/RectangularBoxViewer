@@ -18,6 +18,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
     this.noData = opts.noDataValue;
     this.noDemValue = opts.noDemValue;
     this.root = opts.root;
+    this.name = opts.name;
 
     this.transparencysFN = {};
     this.appearancesN = {};
@@ -67,6 +68,21 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         EarthServerGenericClient.MainScene.reportProgress(this.index);
     };
 
+    this.createTextureDescriptionsFromServerResponses = function(responses) {
+        var texture_descriptions = [];
+        for (var idx = 0; idx < responses.length; idx++) {
+            var textureData = responses[idx].texture;
+            var textureEl = this.createCanvas(textureData, this.index, this.noDataValue, false);
+
+            texture_descriptions.push({
+                id: responses[idx].layerName,
+                textureEl: textureEl
+            });
+        };
+
+        return texture_descriptions;
+    };
+
     /**
      * The Scene Manager calls this function after a few frames since the last insertion of a chunk.
      */
@@ -75,17 +91,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         var info = this.createChunkInfo(this.index, chunkSize, chunkInfo, currentChunk, this.data.width, this.data.height);
         var hm = this.getHeightMap(info);
 
-        // Generate one texture for each 'imagery' ServerResponse:
-        var texture_descriptions = [];
-        for (var idx = 0; idx < this.textureResponses.length; idx++) {
-            var textureData = this.textureResponses[idx].texture;
-            var textureEl = this.createCanvas(textureData, this.index, this.noDataValue, false);
-
-            texture_descriptions.push({
-                id: this.textureResponses[idx].layerName,
-                textureEl: textureEl
-            });
-        };
+        var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
 
         var appearances = this.createAppearances({
             name: 'TerrainApp_' + this.index,
@@ -124,6 +130,74 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         // appearance = null;
         // transform = null;
         // lodNode = null;
+    };
+
+    this.addOverlays = function(provider_array) {
+        this.textureResponses = this.textureResponses.concat(provider_array);
+        var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
+
+        this.multiTextureN = this.createMultiTextureN(texture_descriptions, opts.name);
+        var fragShader = this.createFragmentShaderCode(texture_descriptions, this.name);
+        this.fragmentShader = fragShader;
+    };
+
+    this.updateShader = function(texture_descriptions) {
+        console.log('update shader - NIY');
+    };
+
+    this.createFragmentShaderCode = function(texture_descriptions, namespace) {
+        var fragmentCode = '#ifdef GL_ES \n';
+        fragmentCode += 'precision highp float; \n';
+        fragmentCode += '#endif \n';
+        fragmentCode += 'varying vec2 fragTexCoord; \n';
+        for (var idx = 0; idx < texture_descriptions.length; idx++) {
+            var desc = texture_descriptions[idx];
+            fragmentCode += 'uniform float transparency_' + desc.id + '; \n';
+            fragmentCode += 'uniform sampler2D tex_' + desc.id + '; \n';
+        }
+
+        // Blending equation:
+        // (see http://en.wikibooks.org/wiki/GLSL_Programming/Unity/Transparency)
+        //
+        // TODO: Think of integrating http://mouaif.wordpress.com/?p=94
+        //
+        // vec4 result = SrcFactor * colorOnTop + DstFactor * colorBelow;
+        //
+        // To implement a special blending mode, SrcFactor and DstFactor have to
+        // be chosen correctly:
+        //
+        // * Alpha blending:
+        // -----------------
+        //
+        //   SrcFactor = SrcAlpha = vec4(gl_FragColor.a)
+        //   DstFactor = OneMinusSrcAlpha = vec4(1.0 - gl_FragColor.a)
+        //
+        // Corresponding GLSL code:
+        fragmentCode += 'vec4 alphaBlend(vec4 colorOnTop, vec4 colorBelow) {        \n';
+        fragmentCode += '  vec4 srcFac = vec4(colorOnTop.a);                        \n';
+        fragmentCode += '  vec4 dstFac = vec4(1.0 - colorOnTop.a);                  \n';
+        fragmentCode += '                                                           \n';
+        fragmentCode += '  vec4 result = srcFac * colorOnTop + dstFac * colorBelow; \n';
+        fragmentCode += '  return result;                                           \n';
+        fragmentCode += '}                                                          \n';
+
+        fragmentCode += 'void main() { \n';
+        for (var idx = 0; idx < texture_descriptions.length; idx++) {
+            var desc = texture_descriptions[idx];
+            fragmentCode += '  vec4 color' + idx + ' = texture2D(tex_' + desc.id + ', fragTexCoord); \n';
+            fragmentCode += '  color' + idx + ' = color' + idx + ' * transparency_' + desc.id + '; \n';
+            if (idx == 0) {
+                fragmentCode += '  vec4 colorOnTop = color0; \n';
+            } else {
+                fragmentCode += '  colorOnTop = alphaBlend(colorOnTop, color' + idx + '); \n';
+            }
+        }
+        fragmentCode += '  gl_FragColor = colorOnTop; \n';
+        fragmentCode += '} \n';
+
+        // console.log('fragmentCode:\n' + fragmentCode);
+
+        return fragmentCode;
     };
 
     this.createShaderN = function(texture_descriptions, namespace) {
@@ -185,61 +259,14 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         shaderPartVertex.innerHTML = vertexCode;
         shaderN.appendChild(shaderPartVertex);
 
-        var fragmentCode = '#ifdef GL_ES \n';
-        fragmentCode += 'precision highp float; \n';
-        fragmentCode += '#endif \n';
-        fragmentCode += 'varying vec2 fragTexCoord; \n';
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
-            fragmentCode += 'uniform float transparency_' + desc.id + '; \n';
-            fragmentCode += 'uniform sampler2D tex_' + desc.id + '; \n';
-        }
-
-        // Blending equation:
-        // (see http://en.wikibooks.org/wiki/GLSL_Programming/Unity/Transparency)
-        //
-        // TODO: Think of integrating http://mouaif.wordpress.com/?p=94
-        //
-        // vec4 result = SrcFactor * colorOnTop + DstFactor * colorBelow;
-        //
-        // To implement a special blending mode, SrcFactor and DstFactor have to
-        // be chosen correctly:
-        //
-        // * Alpha blending:
-        // -----------------
-        //
-        //   SrcFactor = SrcAlpha = vec4(gl_FragColor.a)
-        //   DstFactor = OneMinusSrcAlpha = vec4(1.0 - gl_FragColor.a)
-        //
-        // Corresponding GLSL code:
-        fragmentCode += 'vec4 alphaBlend(vec4 colorOnTop, vec4 colorBelow) {        \n';
-        fragmentCode += '  vec4 srcFac = vec4(colorOnTop.a);                        \n';
-        fragmentCode += '  vec4 dstFac = vec4(1.0 - colorOnTop.a);                  \n';
-        fragmentCode += '                                                           \n';
-        fragmentCode += '  vec4 result = srcFac * colorOnTop + dstFac * colorBelow; \n';
-        fragmentCode += '  return result;                                           \n';
-        fragmentCode += '}                                                          \n';
-
-        fragmentCode += 'void main() { \n';
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
-            fragmentCode += '  vec4 color' + idx + ' = texture2D(tex_' + desc.id + ', fragTexCoord); \n';
-            fragmentCode += '  color' + idx + ' = color' + idx + ' * transparency_' + desc.id + '; \n';
-            if (idx == 0) {
-                fragmentCode += '  vec4 colorOnTop = color0; \n';
-            } else {
-                fragmentCode += '  colorOnTop = alphaBlend(colorOnTop, color' + idx + '); \n';
-            }
-        }
-        fragmentCode += '  gl_FragColor = colorOnTop; \n';
-        fragmentCode += '} \n';
-
-        // console.log('fragmentCode:\n' + fragmentCode);
+        var fragmentCode = this.createFragmentShaderCode(texture_descriptions, opts.name);
 
         var shaderPartFragment = document.createElement('shaderPart');
         shaderPartFragment.setAttribute('type', 'FRAGMENT');
         shaderPartFragment.innerHTML = fragmentCode;
         shaderN.appendChild(shaderPartFragment);
+
+        this.fragmentShader = shaderPartFragment.innerHTML;
 
         return shaderN;
     };
@@ -319,8 +346,8 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
             var materialN = this.createMaterialN(opts, opts.name);
             appearanceN.appendChild(materialN);
 
-            var multiTextureN = this.createMultiTextureN(opts.texture_descriptions, opts.name);
-            appearanceN.appendChild(multiTextureN);
+            this.multiTextureN = this.createMultiTextureN(opts.texture_descriptions, opts.name);
+            appearanceN.appendChild(this.multiTextureN);
 
             var shaderN = this.createShaderN(opts.texture_descriptions, opts.name);
             appearanceN.appendChild(shaderN);
