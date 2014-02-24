@@ -73,13 +73,38 @@ RBV.Renderer.Appearance = RBV.Renderer.Node.extend({
 			this.el.setAttribute('sortType', 'transparent');
 		}
 
+		this.nodes = {};
+
 		// FIXXME: integrate automatic def/use mechanism
 		// this.el.setAttribute("id", this.appearancesN[opts.name]);
 		// this.el.setAttribute("def", this.appearancesN[opts.name]);
 	},
 
 	appendChild: function(node) {
+		this.nodes[node.tagName] = node;
 		this.el.appendChild(node.el);
+	},
+
+	appendMultiTexture: function(node) {
+		this.multiTextureN = node;
+		this.el.appendChild(node.el);
+	},
+
+	appendShader: function(node) {
+		this.shaderN = node;
+		this.el.appendChild(node.el);
+	},
+
+	replaceMultiTexture: function(node) {
+		this.el.removeChild(this.multiTextureN.el);
+		this.multiTextureN = node;
+		this.el.appendChild(this.multiTextureN.el);
+	},
+
+	replaceShader: function(node) {
+		this.el.removeChild(this.shaderN.el);
+		this.shaderN = node;
+		this.el.appendChild(this.shaderN.el);
 	}
 });
 

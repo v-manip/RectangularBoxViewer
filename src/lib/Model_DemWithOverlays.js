@@ -204,7 +204,8 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                 textureResponses: textureResponses,
                 index: this.index,
                 noDataValue: this.noData,
-                demNoDataValue: this.demNoData
+                demNoDataValue: this.demNoData,
+                name: this.name
             });
 
             this.terrain.getAppearances = this.getAppearances;
@@ -219,7 +220,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
 
             transform = null;
         } else {
-            var textureResponses = _.sortBy(serverResponses, function(itemresponse) {
+            var textureResponses = _.sortBy(serverResponses, function(response) {
                 return response.layerInfo.ordinal
             });
             this.terrain.addOverlays(textureResponses);

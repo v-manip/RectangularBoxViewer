@@ -18,7 +18,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
     this.noData = opts.noDataValue;
     this.noDemValue = opts.noDemValue;
     this.root = opts.root;
-    this.name = opts.name;
+    this.name = 'TerrainApp_' + this.index;
 
     this.transparencysFN = {};
     this.appearancesN = {};
@@ -42,7 +42,8 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
      * The third chunk has 31 values and the length if 30. With a scale of 4 it's also back to the size 120.
      * @type {number}
      */
-    var chunkSize = 121;
+    var chunkSize = 3;
+    // var chunkSize = 121;
     /**
      * General information about the number of chunks needed to build the terrain.
      * @type {number}
@@ -76,7 +77,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
 
             texture_descriptions.push({
                 id: responses[idx].layerInfo.id,
-                opacity: responses[idx].layerInfo.opacity,  
+                opacity: responses[idx].layerInfo.opacity,
                 textureEl: textureEl
             });
         };
@@ -95,7 +96,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
 
         var appearances = this.createAppearances({
-            name: 'TerrainApp_' + this.index,
+            name: this.name,
             lodCounts: 3,
             modelIndex: this.index,
             texture_descriptions: texture_descriptions,
@@ -136,127 +137,64 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
     this.addOverlays = function(provider_array) {
         this.textureResponses = this.textureResponses.concat(provider_array);
         var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
+        var multiTextureN = this.createMultiTextureNode({
+            texture_descriptions: texture_descriptions
+        });
+        this.appearancesN[this.name].replaceMultiTexture(multiTextureN);
 
-        this.multiTextureN = this.createMultiTextureN(texture_descriptions, opts.name);
-        var fragShader = this.createFragmentShaderCode(texture_descriptions, this.name);
-        this.fragmentShader = fragShader;
+        var shaderN = this.createShaderNode({
+            texture_descriptions: texture_descriptions,
+            namespace: this.name
+        });
+        this.appearancesN[this.name].replaceShader(shaderN);
     };
 
     this.updateShader = function(texture_descriptions) {
         console.log('update shader - NIY');
     };
 
-    this.createShaderN = function(texture_descriptions, namespace) {
-        // <ComposedShader DEF='ComposedShader'>
-        //           <field name='tex_a' type='SFInt32' value='0'/>
-        //           <field name='tex_b' type='SFInt32' value='1'/>
-        //           <field name='tex_c' type='SFInt32' value='2'/> 
-
-        //         <ShaderPart type='FRAGMENT'>
-        //                 #ifdef GL_ES
-        //                   precision highp float;
-        //                 #endif
-
-        //                 uniform sampler2D tex_a;
-        //                 uniform samplerCube tex_b;
-        //                 uniform sampler2D tex_c;
-        //                 ...
-        //         </ShaderPart>
-        //         ...
-        // </ConposedShader>
-
-        // TODO: read static parts of the shader from the DOM and insert only dynamic parts here:
-        // Rough idea:
-        // var myshader = document.getElementById('myshader');
-        // var shader = $('#myshader').clone().attr('id', AppearanceName + '_mat');
-
-        var shaderN = document.createElement('ComposedShader');
-
-        var tex_idx = 0;
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
-
-            var transparencyFN = document.createElement('field');
-            transparencyFN.setAttribute('id', namespace + '_transparency_for_' + desc.id);
-            transparencyFN.setAttribute('name', 'transparency_' + desc.id);
-            transparencyFN.setAttribute('type', 'SFFloat');
-            transparencyFN.setAttribute('value', '1');
-            shaderN.appendChild(transparencyFN);
-
-            this.transparencysFN[namespace + '_transparency_for_' + desc.id] = transparencyFN;
-
-            var textureIdFN = document.createElement('field');
-            textureIdFN.setAttribute('id', namespace + '_texture_for_' + desc.id);
-            textureIdFN.setAttribute('name', 'tex_' + desc.id);
-            textureIdFN.setAttribute('type', 'SFFloat');
-            textureIdFN.setAttribute('value', tex_idx++);
-            shaderN.appendChild(textureIdFN);
-        };
-
-        var vertexCode = 'attribute vec3 position; \n';
-        vertexCode += 'attribute vec3 texcoord; \n';
-        vertexCode += 'uniform mat4 modelViewProjectionMatrix; \n';
-        vertexCode += 'varying vec2 fragTexCoord; \n';
-        vertexCode += 'void main() { \n';
-        vertexCode += 'fragTexCoord = vec2(texcoord.x, 1.0 - texcoord.y);\n';
-        vertexCode += 'gl_Position = modelViewProjectionMatrix * vec4(position, 1.0); }\n';
-        var shaderPartVertex = document.createElement('shaderPart');
-        shaderPartVertex.setAttribute('type', 'VERTEX');
-        shaderPartVertex.innerHTML = vertexCode;
-        shaderN.appendChild(shaderPartVertex);
-
-        var fragmentCode = this.createFragmentShaderCode(texture_descriptions, opts.name);
-
-        var shaderPartFragment = document.createElement('shaderPart');
-        shaderPartFragment.setAttribute('type', 'FRAGMENT');
-        shaderPartFragment.innerHTML = fragmentCode;
-        shaderN.appendChild(shaderPartFragment);
-
-        this.fragmentShader = shaderPartFragment.innerHTML;
-
-        return shaderN;
-    };
-
-    this.createMultiTextureN = function(texture_descriptions, namespace) {
-        // <MultiTexture>
-        // <ImageTexture url='texture/earth.jpg' />
-        // <ImageTexture url='texture/normalMap.png' />
-        // </MultiTexture>
-
-        var multiTextureN = document.createElement('MultiTexture')
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
-
-            var textureN = document.createElement('Texture');
-            textureN.setAttribute('hideChildren', 'true');
-            textureN.setAttribute('repeatS', 'true');
-            textureN.setAttribute('repeatT', 'true');
-            textureN.setAttribute('scale', 'false');
-            textureN.appendChild(desc.textureEl);
-
-            var textureTransformN = document.createElement('TextureTransform');
-            textureTransformN.setAttribute('scale', '1,-1');
-            if (opts.upright) {
-                textureTransformN.setAttribute('rotation', '-1.57');
-            }
-            multiTextureN.appendChild(textureTransformN);
-
-            multiTextureN.appendChild(textureN);
+    this.createMultiTextureNode = function(opts) {
+        var multiTextureN = new RBV.Renderer.MultiTexture();
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            multiTextureN.addTexture(new RBV.Renderer.Texture({
+                hideChildren: true,
+                repeatS: true,
+                repeatT: true,
+                canvasEl: opts.texture_descriptions[idx].textureEl
+            }));
         }
 
         return multiTextureN;
     };
 
-    this.createMaterialN = function(opts, namespace) {
-        var materialN = document.createElement('material');
-        materialN.setAttribute('specularColor', opts.specularColor);
-        materialN.setAttribute('diffuseColor', opts.diffuseColor);
-        materialN.setAttribute('transparency', opts.transparency);
-        materialN.setAttribute('ID', namespace + '_mat');
+    this.createShaderNode = function(opts) {
+        var shaderN = new RBV.Renderer.Shader();
+        shaderN.setVertexCode(this.createVertexShaderCode());
+        shaderN.setFragmentCode(this.createFragmentShaderCode({
+            texture_descriptions: opts.texture_descriptions,
+            namespace: opts.name
+        }));
 
-        return materialN;
-    };
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
 
+            shaderN.addUniform({
+                id: opts.namespace + '_transparency_for_' + desc.id,
+                name: 'transparency_' + desc.id,
+                type: 'SFFloat',
+                value: desc.opacity
+            });
+
+            shaderN.addUniform({
+                id: opts.namespace + '_texture_for_' + desc.id,
+                name: 'tex_' + desc.id,
+                type: 'SFFloat',
+                value: idx
+            });
+        }
+
+        return shaderN;
+    }
     /**
      * FIXXME: adapt description!
      *
@@ -279,48 +217,29 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         });
 
         if (this.appearancesN[opts.name]) { // use the already defined appearance
-            appearanceN.el.setAttribute("use", this.appearancesN[opts.name]);
+            appearanceN.el.setAttribute("use", opts.name);
         } else {
-            this.appearancesN[opts.name] = opts.name;
-            appearanceN.el.setAttribute("id", this.appearancesN[opts.name]);
-            appearanceN.el.setAttribute("def", this.appearancesN[opts.name]);
+            this.appearancesN[opts.name] = appearanceN;
+            appearanceN.el.setAttribute("id", opts.name);
+            appearanceN.el.setAttribute("def", opts.name);
 
-            var materialN = new RBV.Renderer.Material(opts);
+            var materialN = new RBV.Renderer.Material({
+                specularColor: opts.specularColor,
+                diffuseColor: opts.diffuseColor,
+                transparency: opts.transparency
+            });
             appearanceN.appendChild(materialN);
 
-            this.multiTextureN = new RBV.Renderer.MultiTexture();
-            for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
-                this.multiTextureN.addTexture(new RBV.Renderer.Texture({
-                    hideChildren: true,
-                    repeatS: true,
-                    repeatT: true,
-                    canvasEl: opts.texture_descriptions[idx].textureEl
-                }));
-            }
-            appearanceN.appendChild(this.multiTextureN);
+            this.multiTextureN = this.createMultiTextureNode({
+                texture_descriptions: opts.texture_descriptions
+            });
+            appearanceN.appendMultiTexture(this.multiTextureN);
 
-            var shaderN = new RBV.Renderer.Shader();
-            shaderN.setVertexCode(this.createVertexShaderCode());
-            shaderN.setFragmentCode(this.createFragmentShaderCode(opts.texture_descriptions, opts.name));
-
-            for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
-                var desc = opts.texture_descriptions[idx];
-
-                shaderN.addUniform({
-                    id: opts.namespace + '_transparency_for_' + desc.id,
-                    name: 'transparency_' + desc.id,
-                    type: 'SFFloat',
-                    value: desc.opacity
-                });
-
-                shaderN.addUniform({
-                    id: opts.namespace + '_texture_for_' + desc.id,
-                    name: 'tex_' + desc.id,
-                    type: 'SFFloat',
-                    value: idx
-                });
-            }
-            appearanceN.appendChild(shaderN);
+            var shaderN = this.createShaderNode({
+                texture_descriptions: opts.texture_descriptions,
+                namespace: opts.name
+            });
+            appearanceN.appendShader(shaderN);
         }
 
         return [appearanceN.el];
@@ -339,13 +258,13 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
     };
 
 
-    this.createFragmentShaderCode = function(texture_descriptions, namespace) {
+    this.createFragmentShaderCode = function(opts) {
         var fragmentCode = '#ifdef GL_ES \n';
         fragmentCode += 'precision highp float; \n';
         fragmentCode += '#endif \n';
         fragmentCode += 'varying vec2 fragTexCoord; \n';
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
             fragmentCode += 'uniform float transparency_' + desc.id + '; \n';
             fragmentCode += 'uniform sampler2D tex_' + desc.id + '; \n';
         }
@@ -376,8 +295,8 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         fragmentCode += '}                                                          \n';
 
         fragmentCode += 'void main() { \n';
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
+        for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
+            var desc = opts.texture_descriptions[idx];
             fragmentCode += '  vec4 color' + idx + ' = texture2D(tex_' + desc.id + ', fragTexCoord); \n';
             fragmentCode += '  color' + idx + ' = color' + idx + ' * transparency_' + desc.id + '; \n';
             if (idx == 0) {
