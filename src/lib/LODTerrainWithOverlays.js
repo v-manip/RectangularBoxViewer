@@ -75,9 +75,8 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
             var textureEl = this.createCanvas(textureData, this.index, this.noDataValue, false);
 
             texture_descriptions.push({
-                id: responses[idx].layerName,
-                opacity: '1',
-                // opacity: responses[idx].layerOpacity, // FIXXME
+                id: responses[idx].layerInfo.id,
+                opacity: responses[idx].layerInfo.opacity,  
                 textureEl: textureEl
             });
         };

@@ -183,12 +183,12 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                     demResponse = response;
                 } else {
                     textureResponses.push(response);
-                    // console.log('[RBV.Models.DemWithOverlays::receiveData] received layer: ' + response.layerName + ' / ordinal: ' + response.ordinal);
+                    // console.log('[RBV.Models.DemWithOverlays::receiveData] received layer: ' + response.layerInfo.id+ ' / ordinal: ' + response.layerInfo.ordinal);
                 }
             }
 
-            var textureResponses = _.sortBy(textureResponses, function(item) {
-                return item.ordinal
+            var textureResponses = _.sortBy(textureResponses, function(response) {
+                return response.layerInfo.ordinal
             });
 
             // textureResponses.reverse();
@@ -219,8 +219,8 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
 
             transform = null;
         } else {
-            var textureResponses = _.sortBy(serverResponses, function(item) {
-                return item.ordinal
+            var textureResponses = _.sortBy(serverResponses, function(itemresponse) {
+                return response.layerInfo.ordinal
             });
             this.terrain.addOverlays(textureResponses);
         }
