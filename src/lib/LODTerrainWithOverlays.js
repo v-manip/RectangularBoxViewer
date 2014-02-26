@@ -68,6 +68,10 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         EarthServerGenericClient.MainScene.reportProgress(this.index);
     };
 
+    this.reset = function() {
+        EarthServerGenericClient.MainScene.removeModelCallbacks(this.index);
+    };
+
     this.createTextureDescriptionsFromServerResponses = function(responses) {
         var texture_descriptions = [];
         for (var idx = 0; idx < responses.length; idx++) {
@@ -136,7 +140,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
     this.addOverlays = function(provider_array) {
         this.textureResponses = this.textureResponses.concat(provider_array);
         var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
-        
+
         this.updateShader(texture_descriptions);
     };
 

@@ -17,6 +17,10 @@ RBV.Context = function(opts) {
 	this.providers = {};
 };
 
+RBV.Context.prototype.reset = function() {
+	this.providers = {};
+};
+
 RBV.Context.prototype.setToI = function(timespan) {
 	this.toi = timespan;
 };
