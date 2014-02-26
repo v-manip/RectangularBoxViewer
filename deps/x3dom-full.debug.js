@@ -3013,21 +3013,23 @@ x3dom.States = function (x3dElem) {
 
         //Create list items
         for (var m in measurements) {
-            infoItem = document.createElement('li');
-            infoItem.className = 'x3dom-states-item';
+            if (measurements.hasOwnProperty(m)) {
+                infoItem = document.createElement('li');
+                infoItem.className = 'x3dom-states-item';
 
-            infoTitle = document.createElement('div');
-            infoTitle.className = 'x3dom-states-item-title';
-            infoTitle.appendChild(document.createTextNode(m));
+                infoTitle = document.createElement('div');
+                infoTitle.className = 'x3dom-states-item-title';
+                infoTitle.appendChild(document.createTextNode(m));
 
-            infoValue = document.createElement('div');
-            infoValue.className = 'x3dom-states-item-value';
-            infoValue.appendChild(document.createTextNode(this.toFixed(measurements[m])));
+                infoValue = document.createElement('div');
+                infoValue.className = 'x3dom-states-item-value';
+                infoValue.appendChild(document.createTextNode(this.toFixed(measurements[m])));
 
-            infoItem.appendChild(infoTitle);
-            infoItem.appendChild(infoValue);
+                infoItem.appendChild(infoTitle);
+                infoItem.appendChild(infoValue);
 
-            this.measureList.appendChild(infoItem);
+                this.measureList.appendChild(infoItem);
+            }
         }
 
         //Clear info list
@@ -9163,20 +9165,19 @@ x3dom.Cache.prototype.getShadowRenderingShader = function (gl, shadowedLights) {
  * Release texture and shader resources
  */
 x3dom.Cache.prototype.Release = function (gl) {
-    for (var texture in this.textures) {
-        gl.deleteTexture(this.textures[texture]);
-    }
+    Array.forEach(this.textures, function(texture) {
+        gl.deleteTexture(texture);
+    });
     this.textures = [];
 
-    for (var shaderId in this.shaders) {
-        var shader = this.shaders[shaderId];
+    Array.forEach(this.shaders, function(shader) {
         var glShaders = gl.getAttachedShaders(shader.program);
         for (var i=0; i<glShaders.length; ++i) {
             gl.detachShader(shader.program, glShaders[i]);
             gl.deleteShader(glShaders[i]);
         }
         gl.deleteProgram(shader.program)
-    }
+    });
     this.shaders = [];
 };
 
