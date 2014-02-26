@@ -151,7 +151,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
 
         this.textureResponses = _.without(this.textureResponses, layer);
         var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
-        
+
         this.updateShader(texture_descriptions);
     };
 
@@ -276,7 +276,6 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         return vertexCode;
     };
 
-
     this.createFragmentShaderCode = function(opts) {
         var fragmentCode = '#ifdef GL_ES \n';
         fragmentCode += 'precision highp float; \n';
@@ -346,6 +345,14 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
 
         if (transparencyFN) {
             transparencyFN.setAttribute('value', String(1.0 - value));
+            var textureResponse = _.find(this.textureResponses, function(texture) {
+                return texture.layerInfo.id === texture_id;
+            });
+            if (textureResponse) {
+                textureResponse.layerInfo.opacity = 1.0 - value;
+            } else {
+                console.error('[LODTerrainWithOverlays::setTransparencyFor] cannot find textureResponse "' + texture_id + '". This should not happen!');
+            }
         } else {
             console.log('RBV.Visualization.LODTerrainWithOverlays: Cannot find transparency field: ' + transparencyFieldId);
         }

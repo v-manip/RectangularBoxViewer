@@ -138,21 +138,21 @@ RBV.Models.DemWithOverlays.prototype.requestData = function() {
     // First find out which data has to be requested:
 
     // Convert the original Backbone.Model layers to 'plain-old-data' javascript objects:
-    var requests = [];
+    var layerRequests = [];
     _.each(this.imageryProviders, function(layer, idx) {
         if (!layer.get('isUpToDate')) {
             layer.set('isUpToDate', true);
-            requests.push(layer.toJSON());
+            layerRequests.push(layer.toJSON());
         }
     });
 
     if (!this.demRequest.get('isUpToDate')) {
         this.demRequest.set('isUpToDate', true);
-        requests.push(this.demRequest.toJSON());
+        layerRequests.push(this.demRequest.toJSON());
     };
 
-    if (requests.length) {
-        EarthServerGenericClient.sendRequests(this, requests, {
+    if (layerRequests.length) {
+        EarthServerGenericClient.sendRequests(this, layerRequests, {
             bbox: this.bbox,
             timespan: this.timespan,
             resX: this.XResolution,
@@ -191,7 +191,6 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                 }
             }
 
-            // textureResponses.reverse();
             var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
             var transform = this.createTransform(demResponse.width, YResolution, demResponse.height, parseFloat(demResponse.minHMvalue), demResponse.minXvalue, demResponse.minZvalue);
             this.root.appendChild(transform);
