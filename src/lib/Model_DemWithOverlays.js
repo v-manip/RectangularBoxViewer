@@ -14,8 +14,27 @@ RBV.Models.DemWithOverlays = function() {
     this.terrain = null;
     this.demRequest = null;
     this.imageryProviders = [];
+
+    this.isResetted = true;
 };
 RBV.Models.DemWithOverlays.inheritsFrom(EarthServerGenericClient.AbstractSceneModel);
+
+
+RBV.Models.DemWithOverlays.prototype.reset = function() {
+    this.demRequest = null;
+    this.imageryProviders = [];
+
+    if (this.terrain) {
+        this.terrain.reset(); // removes pending callbacks in the EarthServerGenericClient runtime
+        this.terrain = null;
+    }
+
+
+    // FIXXME: this removes ALL models, which is not what we want...
+    EarthServerGenericClient.MainScene.resetScene();
+    this.setDefaults();
+    this.isResetted = true;
+}
 
 /**
  * Sets the DEM request.
@@ -54,6 +73,7 @@ RBV.Models.DemWithOverlays.prototype.removeImageryProviderById = function(id) {
     });
 
     if (provider) {
+        provider.off('change:opacity');
         var idx = _.indexOf(this.imageryProviders, provider);
         this.imageryProviders.splice(idx, 1);
     } else {
@@ -94,9 +114,10 @@ RBV.Models.DemWithOverlays.prototype.setTransparencyFor = function(id, value) {
     });
 
     if (layer) {
+        // FIXXME: the attribute is set here, its change event triggers the function registered
+        // in 'addImageryProvider'. Are there any advantages in calling terrain.setTransparencyFor()
+        // here directly?
         layer.set('opacity', value);
-    } else {
-        console.error('[RBV.Models.DemWithOverlays::setTransparencyFor] Layer "' + id + '" not found!');
     }
 };
 /**
@@ -107,6 +128,8 @@ RBV.Models.DemWithOverlays.prototype.setTransparencyFor = function(id, value) {
  * @param cubeSizeZ - Size of the fishtank/cube on the z-axis.
  */
 RBV.Models.DemWithOverlays.prototype.createModel = function(root, cubeSizeX, cubeSizeY, cubeSizeZ) {
+    this.isResetted = false;
+
     if (typeof root === 'undefined') {
         throw Error('[Model_DEMWithOverlays::createModel] root is not defined')
     }
@@ -162,6 +185,12 @@ RBV.Models.DemWithOverlays.prototype.requestData = function() {
 };
 
 RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
+    // In case the model was resetted after a request was send which did not resolve yet,
+    // the incoming request is skipped here:
+    if (this.isResetted) {
+        return;
+    }
+
     if (this.checkReceivedData(serverResponses)) {
         var initialSetup = false;
         if (!this.terrain) {
@@ -191,6 +220,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                 }
             }
 
+
             var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
             var transform = this.createTransform(demResponse.width, YResolution, demResponse.height, parseFloat(demResponse.minHMvalue), demResponse.minXvalue, demResponse.minZvalue);
             this.root.appendChild(transform);
@@ -207,8 +237,6 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                 name: this.name
             });
 
-            this.terrain.getAppearances = this.getAppearances;
-            this.terrain.setTransparency = this.setTransparency;
             this.terrain.createTerrain();
             EarthServerGenericClient.MainScene.timeLogEnd("Update Terrain " + this.name);
             this.elevationUpdateBinding();
