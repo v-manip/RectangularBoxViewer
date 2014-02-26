@@ -42,8 +42,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
      * The third chunk has 31 values and the length if 30. With a scale of 4 it's also back to the size 120.
      * @type {number}
      */
-    var chunkSize = 3;
-    // var chunkSize = 121;
+    var chunkSize = 121;
     /**
      * General information about the number of chunks needed to build the terrain.
      * @type {number}
@@ -137,27 +136,30 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
     this.addOverlays = function(provider_array) {
         this.textureResponses = this.textureResponses.concat(provider_array);
         var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
-        var multiTextureN = this.createMultiTextureNode({
-            texture_descriptions: texture_descriptions
-        });
-        this.appearancesN[this.name].replaceMultiTexture(multiTextureN);
-
-        var shaderN = this.createShaderNode({
-            texture_descriptions: texture_descriptions,
-            namespace: this.name
-        });
-        this.appearancesN[this.name].replaceShader(shaderN);
+        
+        this.updateShader(texture_descriptions);
     };
 
-    this.updateShader = function(texture_descriptions) {
-        console.log('update shader - NIY');
+    this.removeOverlayById = function(id) {
+        var layer = _.find(this.textureResponses, function(response) {
+            return response.layerInfo.id === id;
+        });
+
+        if (!layer) {
+            return;
+        }
+
+        this.textureResponses = _.without(this.textureResponses, layer);
+        var texture_descriptions = this.createTextureDescriptionsFromServerResponses(this.textureResponses);
+        
+        this.updateShader(texture_descriptions);
     };
 
     this.createMultiTextureNode = function(opts) {
         var multiTextureN = new RBV.Renderer.MultiTexture();
         for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
             multiTextureN.addTexture(new RBV.Renderer.Texture({
-                hideChildren: true,
+                hideChildren: false,
                 repeatS: true,
                 repeatT: true,
                 canvasEl: opts.texture_descriptions[idx].textureEl
@@ -172,7 +174,8 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
         shaderN.setVertexCode(this.createVertexShaderCode());
         shaderN.setFragmentCode(this.createFragmentShaderCode({
             texture_descriptions: opts.texture_descriptions,
-            namespace: opts.name
+            namespace: opts.name,
+            debug: opts.debug || false
         }));
 
         for (var idx = 0; idx < opts.texture_descriptions.length; idx++) {
@@ -184,6 +187,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
                 type: 'SFFloat',
                 value: desc.opacity
             });
+            console.log('opacity: ' + desc.opacity);
 
             shaderN.addUniform({
                 id: opts.namespace + '_texture_for_' + desc.id,
@@ -195,6 +199,21 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
 
         return shaderN;
     }
+
+    this.updateShader = function(texture_descriptions) {
+        var multiTextureN = this.createMultiTextureNode({
+            texture_descriptions: texture_descriptions
+        });
+        this.appearancesN[this.name].replaceMultiTexture(multiTextureN);
+
+        var shaderN = this.createShaderNode({
+            texture_descriptions: texture_descriptions,
+            namespace: this.name,
+            debug: false
+        });
+        this.appearancesN[this.name].replaceShader(shaderN);
+    };
+
     /**
      * FIXXME: adapt description!
      *
@@ -305,8 +324,11 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
                 fragmentCode += '  colorOnTop = alphaBlend(colorOnTop, color' + idx + '); \n';
             }
         }
-        fragmentCode += '  gl_FragColor = colorOnTop; \n';
-        // fragmentCode += '  gl_FragColor = vec4(0,0,1.0,1); \n';
+        if (!opts.debug) {
+            fragmentCode += '  gl_FragColor = colorOnTop; \n';
+        } else {
+            fragmentCode += '  gl_FragColor = vec4(0,0,1.0,1); \n';
+        }
         fragmentCode += '} \n';
 
         // console.log('fragmentCode:\n' + fragmentCode);

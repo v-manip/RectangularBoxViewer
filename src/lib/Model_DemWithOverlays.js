@@ -168,6 +168,10 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
             initialSetup = true;
         }
 
+        var serverResponses = _.sortBy(serverResponses, function(response) {
+            return response.layerInfo.ordinal
+        });
+
         if (initialSetup) {
             // Setup and create the initial terrain:
             this.removePlaceHolder();
@@ -186,10 +190,6 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
                     // console.log('[RBV.Models.DemWithOverlays::receiveData] received layer: ' + response.layerInfo.id+ ' / ordinal: ' + response.layerInfo.ordinal);
                 }
             }
-
-            var textureResponses = _.sortBy(textureResponses, function(response) {
-                return response.layerInfo.ordinal
-            });
 
             // textureResponses.reverse();
             var YResolution = this.YResolution || (parseFloat(demResponse.maxHMvalue) - parseFloat(demResponse.minHMvalue));
@@ -220,10 +220,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
 
             transform = null;
         } else {
-            var textureResponses = _.sortBy(serverResponses, function(response) {
-                return response.layerInfo.ordinal
-            });
-            this.terrain.addOverlays(textureResponses);
+            this.terrain.addOverlays(serverResponses);
         }
     }
 };
