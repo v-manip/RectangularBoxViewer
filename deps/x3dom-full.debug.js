@@ -18137,31 +18137,38 @@ x3dom.X3DDocument.prototype._setup = function (sceneDoc, uriDocs, sceneElemPos) 
                 }
             }
             else if (domNode.localName && domNode.localName.toUpperCase() == "X3D") {
-                var runtime = domNode.runtime;
+                setTimeout(function() {
+                    // console.log('parentNode: ', domNode.parentNode);
 
-                if (runtime && runtime.canvas && runtime.canvas.doc && runtime.canvas.doc._scene) {
-                    var sceneNode = runtime.canvas.doc._scene._xmlNode;
+                    if (!domNode.parentNode) {
+                        var runtime = domNode.runtime;
 
-                    removeX3DOMBackendGraph(sceneNode);
+                        if (runtime && runtime.canvas && runtime.canvas.doc && runtime.canvas.doc._scene) {
+                            var sceneNode = runtime.canvas.doc._scene._xmlNode;
 
-                    // also clear corresponding X3DCanvas element
-                    for (var i=0; i<x3dom.canvases.length; i++) {
-                        if (x3dom.canvases[i] === runtime.canvas) {
-                            x3dom.canvases[i].doc.shutdown(x3dom.canvases[i].gl);
-                            x3dom.canvases.splice(i, 1);
-                            break;
+                            removeX3DOMBackendGraph(sceneNode);
+
+                            // also clear corresponding X3DCanvas element
+                            for (var i=0; i<x3dom.canvases.length; i++) {
+                                if (x3dom.canvases[i] === runtime.canvas) {
+                                    x3dom.canvases[i].doc.shutdown(x3dom.canvases[i].gl);
+                                    x3dom.canvases.splice(i, 1);
+                                    break;
+                                }
+                            }
+
+                            runtime.canvas.doc._scene = null;
+                            runtime.canvas.doc._viewarea = null;
+                            runtime.canvas.doc = null;
+                            runtime.canvas = null;
+                            runtime = null;
+
+                            domNode.context = null;
+                            domNode.runtime = null;
+                            //domNode.hasRuntime = undefined;
                         }
                     }
-
-                    runtime.canvas.doc._scene = null;
-                    runtime.canvas.doc._viewarea = null;
-                    runtime.canvas.doc = null;
-                    runtime.canvas = null;
-                    runtime = null;
-
-                    domNode.context = null;
-                    domNode.runtime = null;
-                }
+                }, 1000);
             }
         },
         
