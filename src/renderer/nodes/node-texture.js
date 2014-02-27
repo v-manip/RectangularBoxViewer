@@ -36,13 +36,5 @@ RBV.Renderer.Nodes.MultiTexture = RBV.Renderer.Nodes.Base.extend({
 			});
 			this.el.appendChild(t.el);
 		}
-	},
-
-	// Removes all DOM data and recreates a new (empty) element.
-	removeFromDOM: function() {
-		if (this.el.parentNode) {
-			this.el.parentNode.removeChild(this.el);
-		}
-		RBV.Renderer.Nodes.Base.call(this, this.options);
 	}
 });

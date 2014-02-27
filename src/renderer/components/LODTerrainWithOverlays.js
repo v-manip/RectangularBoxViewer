@@ -135,7 +135,6 @@ RBV.Renderer.Components.LODTerrainWithOverlays.prototype.removeOverlayById = fun
     }
 
     this.textureDescs = _.without(this.textureDescs, textureDescription);
-
     this.updateEffect();
 };
 
@@ -186,6 +185,7 @@ RBV.Renderer.Components.LODTerrainWithOverlays.prototype.extractTextureDescFromR
         texture_descriptions.push({
             id: responses[idx].layerInfo.id,
             opacity: responses[idx].layerInfo.opacity,
+            ordinal: responses[idx].layerInfo.ordinal,
             textureEl: textureEl
         });
     };

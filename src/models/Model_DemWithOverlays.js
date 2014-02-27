@@ -196,11 +196,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
         if (!this.terrain) {
             initialSetup = true;
         }
-
-        var serverResponses = _.sortBy(serverResponses, function(response) {
-            return response.layerInfo.ordinal
-        });
-
+        
         if (initialSetup) {
             // Setup and create the initial terrain:
             this.removePlaceHolder();
