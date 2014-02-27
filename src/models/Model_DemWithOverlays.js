@@ -9,7 +9,7 @@ RBV.Models = RBV.Models || {};
  */
 RBV.Models.DemWithOverlays = function() {
     this.setDefaults();
-    this.name = "DEM with overlay(s)";
+    this.id = "DEMWithOverlays";
 
     this.terrain = null;
     this.demRequest = null;
@@ -134,7 +134,7 @@ RBV.Models.DemWithOverlays.prototype.createModel = function(root, cubeSizeX, cub
         throw Error('[Model_DEMWithOverlays::createModel] root is not defined')
     }
 
-    EarthServerGenericClient.MainScene.timeLogStart("Create Model_DEMWithOverlays " + this.name);
+    EarthServerGenericClient.MainScene.timeLogStart("Create Model_DEMWithOverlays " + this.id);
 
     this.cubeSizeX = cubeSizeX;
     this.cubeSizeY = cubeSizeY;
@@ -226,24 +226,24 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
             this.root.appendChild(transform);
 
             //Create Terrain out of the received demResponse
-            EarthServerGenericClient.MainScene.timeLogStart("Update Terrain " + this.name);
+            EarthServerGenericClient.MainScene.timeLogStart("Update Terrain " + this.id);
             this.terrain = new RBV.Visualization.LODTerrainWithOverlays({
+                id: this.id,
                 root: transform,
                 demResponse: demResponse,
                 textureResponses: textureResponses,
                 index: this.index,
                 noDataValue: this.noData,
                 demNoDataValue: this.demNoData,
-                name: this.name
             });
 
             this.terrain.createTerrain();
-            EarthServerGenericClient.MainScene.timeLogEnd("Update Terrain " + this.name);
+            EarthServerGenericClient.MainScene.timeLogEnd("Update Terrain " + this.id);
             this.elevationUpdateBinding();
             if (this.sidePanels) {
                 this.terrain.createSidePanels(this.transformNode, 1);
             }
-            EarthServerGenericClient.MainScene.timeLogEnd("Create Model_DEMWithOverlays " + this.name);
+            EarthServerGenericClient.MainScene.timeLogEnd("Create Model_DEMWithOverlays " + this.id);
 
             transform = null;
         } else {
@@ -268,7 +268,7 @@ RBV.Models.DemWithOverlays.prototype.checkReceivedData = function(serverResponse
         }
 
         // if (data === null || !data.validate()) {
-        //     alert(this.name + ": Request not successful.");
+        //     alert(this.id + ": Request not successful.");
         //     console.log(data);
         //     this.reportProgress(); //NO Terrain will be built so report the progress here
         //     this.removePlaceHolder(); //Remove the placeHolder.

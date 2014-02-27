@@ -1,48 +1,7 @@
 RBV.Renderer = RBV.Renderer || {};
+RBV.Renderer.Nodes = RBV.Renderer.Nodes || {};
 
-// Helper function to correctly set up the prototype chain, for subclasses.
-// Similar to `goog.inherits`, but uses a hash of prototype properties and
-// class properties to be extended.
-//
-// Note: Copied verbatim from Backbone (www.backbonejs.org).
-var extend = function(protoProps, staticProps) {
-	var parent = this;
-	var child;
-
-	// The constructor function for the new subclass is either defined by you
-	// (the "constructor" property in your `extend` definition), or defaulted
-	// by us to simply call the parent's constructor.
-	if (protoProps && _.has(protoProps, 'constructor')) {
-		child = protoProps.constructor;
-	} else {
-		child = function() {
-			return parent.apply(this, arguments);
-		};
-	}
-
-	// Add static properties to the constructor function, if supplied.
-	_.extend(child, parent, staticProps);
-
-	// Set the prototype chain to inherit from `parent`, without calling
-	// `parent`'s constructor function.
-	var Surrogate = function() {
-		this.constructor = child;
-	};
-	Surrogate.prototype = parent.prototype;
-	child.prototype = new Surrogate;
-
-	// Add prototype properties (instance properties) to the subclass,
-	// if supplied.
-	if (protoProps) _.extend(child.prototype, protoProps);
-
-	// Set a convenience property in case the parent's prototype is needed
-	// later.
-	child.__super__ = parent.prototype;
-
-	return child;
-};
-
-RBV.Renderer.Node = function(options) {
+RBV.Renderer.Nodes.Base = function(options) {
 	this.el = null;
 	this.options = options || {}; // FIXXME: replace with some 'arguments' logic?
 
@@ -61,9 +20,9 @@ RBV.Renderer.Node = function(options) {
 		this.initialize.apply(this, arguments);
 	}
 }
-RBV.Renderer.Node.extend = extend;
+RBV.Renderer.Nodes.Base.extend = RBV.extend;
 
-RBV.Renderer.Appearance = RBV.Renderer.Node.extend({
+RBV.Renderer.Nodes.Appearance = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'Appearance',
 
 	initialize: function(opts) {
@@ -73,6 +32,15 @@ RBV.Renderer.Appearance = RBV.Renderer.Node.extend({
 			this.el.setAttribute('sortType', 'transparent');
 		}
 
+		if (opts.use) {
+			this.el.setAttribute("use", opts.use);
+
+		} else {
+			this.el.setAttribute("id", opts.id);
+			this.el.setAttribute("def", opts.id);
+		}
+
+		this.shaderN = null;
 		this.nodes = {};
 
 		// FIXXME: integrate automatic def/use mechanism
@@ -102,13 +70,20 @@ RBV.Renderer.Appearance = RBV.Renderer.Node.extend({
 	},
 
 	replaceShader: function(node) {
-		this.el.removeChild(this.shaderN.el);
+		if (this.shaderN) {
+			this.el.removeChild(this.shaderN.el);
+		}
 		this.shaderN = node;
 		this.el.appendChild(this.shaderN.el);
+	},
+
+	reset: function() {
+		this.shaderN.removeFromDOM();
+		this.multiTextureN.removeFromDOM();
 	}
 });
 
-RBV.Renderer.Shader = RBV.Renderer.Node.extend({
+RBV.Renderer.Nodes.Shader = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'ComposedShader',
 
 	vertexUrl: '',
@@ -145,10 +120,18 @@ RBV.Renderer.Shader = RBV.Renderer.Node.extend({
 		uniformFN.setAttribute('value', String(opts.value));
 
 		this.el.appendChild(uniformFN);
+	},
+
+	// Removes all DOM data and recreates a new (empty) element.
+	removeFromDOM: function() {
+		if (this.el.parentNode) {
+			this.el.parentNode.removeChild(this.el);
+		}
+		RBV.Renderer.Nodes.Base.call(this, this.options);
 	}
 });
 
-RBV.Renderer.Texture = RBV.Renderer.Node.extend({
+RBV.Renderer.Nodes.Texture = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'Texture',
 
 	initialize: function(opts) {
@@ -160,7 +143,7 @@ RBV.Renderer.Texture = RBV.Renderer.Node.extend({
 	}
 });
 
-RBV.Renderer.TextureTransform = RBV.Renderer.Node.extend({
+RBV.Renderer.Nodes.TextureTransform = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'TextureTransform',
 
 	initialize: function(opts) {
@@ -169,7 +152,7 @@ RBV.Renderer.TextureTransform = RBV.Renderer.Node.extend({
 	}
 });
 
-RBV.Renderer.Material = RBV.Renderer.Node.extend({
+RBV.Renderer.Nodes.Material = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'Material',
 
 	initialize: function(opts) {
@@ -180,7 +163,7 @@ RBV.Renderer.Material = RBV.Renderer.Node.extend({
 	}
 });
 
-RBV.Renderer.MultiTexture = RBV.Renderer.Node.extend({
+RBV.Renderer.Nodes.MultiTexture = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'MultiTexture',
 
 	addTexture: function(texture, transform) {
@@ -188,11 +171,19 @@ RBV.Renderer.MultiTexture = RBV.Renderer.Node.extend({
 		if (typeof transform !== 'undefined') {
 			this.el.appendChild(transform.el);
 		} else {
-			var t = new RBV.Renderer.TextureTransform({
+			var t = new RBV.Renderer.Nodes.TextureTransform({
 				scale: '1,-1',
 				rotation: 0
 			});
 			this.el.appendChild(t.el);
 		}
+	},
+
+	// Removes all DOM data and recreates a new (empty) element.
+	removeFromDOM: function() {
+		if (this.el.parentNode) {
+			this.el.parentNode.removeChild(this.el);
+		}
+		RBV.Renderer.Nodes.Base.call(this, this.options);
 	}
 });
