@@ -227,7 +227,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
 
             //Create Terrain out of the received demResponse
             EarthServerGenericClient.MainScene.timeLogStart("Update Terrain " + this.id);
-            this.terrain = new RBV.Visualization.LODTerrainWithOverlays({
+            this.terrain = new RBV.Renderer.VizModule.LODTerrainWithOverlays({
                 id: this.id,
                 root: transform,
                 demResponse: demResponse,

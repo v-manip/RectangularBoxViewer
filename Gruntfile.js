@@ -12,33 +12,36 @@ module.exports = function(grunt) {
 			},
 			dist: {
 				files: {
-					'dist/<%= pkg.name %>.debug.js': ['src/viewer.js', 'src/**/*.js'],
+					'dist/<%= pkg.name %>.debug.js': [
+						'src/core/config.js',
+						'src/renderer/nodes/node-base.js',
+						'src/viewer.js',
+						'src/**/*.js'
+					],
 					'dist/<%= pkg.name %>-deps.debug.js': ['deps/*.js']
 				}
 			}
 		},
 		copy: {
 			main: {
-				files: [
-					{
-						flatten: true,
-						expand: true,
-						src: ['dist/*.js'],
-						dest: '<%= installdir %>'
-					}
-				]
+				files: [{
+					flatten: true,
+					expand: true,
+					src: ['dist/*.js'],
+					dest: '<%= installdir %>'
+				}]
 			},
 		},
 
 		watch: {
-            scripts: {
-                files: ['src/**/*.js', 'deps/*.js'],
-                tasks: ['default']
-            }
-        }
+			scripts: {
+				files: ['src/**/*.js', 'deps/*.js'],
+				tasks: ['default']
+			}
+		}
 	});
 
-    grunt.loadNpmTasks('grunt-contrib-watch');
+	grunt.loadNpmTasks('grunt-contrib-watch');
 
 	grunt.registerTask('default', ['concat', 'copy']);
 };

@@ -1,10 +1,7 @@
 RBV.Renderer = RBV.Renderer || {};
-RBV.Renderer.Nodes = RBV.Renderer.Nodes || {};
-RBV.Renderer.Nodes.Effects = RBV.Renderer.Nodes.Effects || {};
+RBV.Renderer.Effects = RBV.Renderer.Effects || {};
 
-var EffectsNS = RBV.Renderer.Nodes.Effects;
-
-EffectsNS.TextureBlend = function(opts) {
+RBV.Renderer.Effects.TextureBlend = function(opts) {
 	this._appearanceN = null;
 	this._materialN = null;
 	this._shaderN = null;
@@ -18,7 +15,7 @@ EffectsNS.TextureBlend = function(opts) {
 	this._setup();
 }
 
-EffectsNS.TextureBlend.prototype._setup = function() {
+RBV.Renderer.Effects.TextureBlend.prototype._setup = function() {
 	this._appearanceN = new RBV.Renderer.Nodes.Appearance({
 		id: this._id,
 		transparency: this._options.transparency
@@ -44,14 +41,14 @@ EffectsNS.TextureBlend.prototype._setup = function() {
 	this._shaderN = new RBV.Renderer.Nodes.Shader();
 };
 
-EffectsNS.TextureBlend.prototype.reset = function(desc) {
+RBV.Renderer.Effects.TextureBlend.prototype.reset = function(desc) {
 	this._textureDescs = [];
 	// The appearance internally resets this._shaderN and this._multiTextureN
 	// as a 'sideeffect':
 	this._appearanceN.reset();
 };
 
-EffectsNS.TextureBlend.prototype.addTextureFromDesc = function(desc) {
+RBV.Renderer.Effects.TextureBlend.prototype.addTextureFromDesc = function(desc) {
 	// FIXXME: integrate desc.transform, to be able to cleanup when removing a texture!
 	this._textureDescs.push({
 		id: desc.id,
@@ -61,23 +58,23 @@ EffectsNS.TextureBlend.prototype.addTextureFromDesc = function(desc) {
 	});
 };
 
-EffectsNS.TextureBlend.prototype.commitChanges = function() {
+RBV.Renderer.Effects.TextureBlend.prototype.commitChanges = function() {
 	this._updateMultiTextureNode();
 	this._updateShaderNode();
 };
 
-EffectsNS.TextureBlend.prototype.appearance = function() {
+RBV.Renderer.Effects.TextureBlend.prototype.appearance = function() {
 	return new RBV.Renderer.Nodes.Appearance({
 		use: this._id,
 		transparency: this._options.transparency
 	});
 };
 
-EffectsNS.TextureBlend.prototype.id = function() {
+RBV.Renderer.Effects.TextureBlend.prototype.id = function() {
 	return this._id;
 };
 
-EffectsNS.TextureBlend.prototype._updateMultiTextureNode = function() {
+RBV.Renderer.Effects.TextureBlend.prototype._updateMultiTextureNode = function() {
 	// FIXXME: rethink sideeffects regarding removeFromDOM/appendMultiTexture/replaceMultiTexture!
 	// For now it is working and properly encapsulated...
 	this._multiTextureN.removeFromDOM();
@@ -96,7 +93,7 @@ EffectsNS.TextureBlend.prototype._updateMultiTextureNode = function() {
 	this._appearanceN.appendMultiTexture(this._multiTextureN);
 }
 
-EffectsNS.TextureBlend.prototype._updateShaderNode = function() {
+RBV.Renderer.Effects.TextureBlend.prototype._updateShaderNode = function() {
 	// FIXXME: rethink sideeffects regarding removeFromDOM/appendShader/replaceShader!
 	// For now it is working and properly encapsulated...
 	this._shaderN.removeFromDOM();
@@ -124,7 +121,7 @@ EffectsNS.TextureBlend.prototype._updateShaderNode = function() {
 	this._appearanceN.appendShader(this._shaderN);
 }
 
-EffectsNS.TextureBlend.prototype._createVertexShaderCode = function() {
+RBV.Renderer.Effects.TextureBlend.prototype._createVertexShaderCode = function() {
 	var vertexCode = 'attribute vec3 position; \n';
 	vertexCode += 'attribute vec3 texcoord; \n';
 	vertexCode += 'uniform mat4 modelViewProjectionMatrix; \n';
@@ -136,7 +133,7 @@ EffectsNS.TextureBlend.prototype._createVertexShaderCode = function() {
 	return vertexCode;
 };
 
-EffectsNS.TextureBlend.prototype._createFragmentShaderCode = function() {
+RBV.Renderer.Effects.TextureBlend.prototype._createFragmentShaderCode = function() {
 	var fragmentCode = '#ifdef GL_ES \n';
 	fragmentCode += 'precision highp float; \n';
 	fragmentCode += '#endif \n';

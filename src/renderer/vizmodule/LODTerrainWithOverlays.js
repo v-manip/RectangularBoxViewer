@@ -1,4 +1,4 @@
-RBV.Visualization = RBV.Visualization || {};
+RBV.Renderer.VizModule = RBV.Renderer.VizModule || {};
 
 /**
  * @class This terrain builds up a LOD with 3 levels of the received data.
@@ -11,14 +11,15 @@ RBV.Visualization = RBV.Visualization || {};
  * @constructor
  */
 // root, data, index, noDataValue, noDemValue
-RBV.Visualization.LODTerrainWithOverlays = function(opts) {
+RBV.Renderer.VizModule.LODTerrainWithOverlays = function(opts) {
     this.data = opts.demResponse;
-    this.textureResponses = opts.textureResponses;
     this.index = opts.index;
     this.noData = opts.noDataValue;
     this.noDemValue = opts.noDemValue;
     this.root = opts.root;
     this.name = opts.id + this.index;
+
+    this.textureDescs = this.extractTextureDescFromResponses(opts.textureResponses);
 
     /**
      * Distance to change between full and 1/2 resolution.
@@ -63,7 +64,7 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
 
         if (!this.textureBlendEffect) {
 
-            this.textureBlendEffect = new RBV.Renderer.Nodes.Effects.TextureBlend({
+            this.textureBlendEffect = new RBV.Renderer.Effects.TextureBlend({
                 id: this.name,
                 transparency: this.data.transparency,
                 material: {
@@ -74,9 +75,8 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
                 upright: false
             });
 
-            var texture_descriptions = this.extractTextureDescFromResponses(this.textureResponses);
-            for (var idx = 0; idx < texture_descriptions.length; idx++) {
-                var desc = texture_descriptions[idx];
+            for (var idx = 0; idx < this.textureDescs.length; idx++) {
+                var desc = this.textureDescs[idx];
                 this.textureBlendEffect.addTextureFromDesc(desc);
             };
             this.textureBlendEffect.commitChanges();
@@ -113,86 +113,82 @@ RBV.Visualization.LODTerrainWithOverlays = function(opts) {
 
         currentChunk++;
     };
+};
+RBV.Renderer.VizModule.LODTerrainWithOverlays.inheritsFrom(EarthServerGenericClient.AbstractTerrain);
 
-    this.reset = function() {
-        EarthServerGenericClient.MainScene.removeModelCallbacks(this.index);
-    };
-
-    this.addOverlays = function(serverResponses) {
-        this.textureResponses = this.textureResponses.concat(serverResponses);
-        var texture_descriptions = this.extractTextureDescFromResponses(this.textureResponses);
-
-        this.updateEffect(texture_descriptions);
-    };
-
-    this.removeOverlayById = function(id) {
-        var layer = _.find(this.textureResponses, function(response) {
-            return response.layerInfo.id === id;
-        });
-
-        if (!layer) {
-            return;
-        }
-
-        this.textureResponses = _.without(this.textureResponses, layer);
-        var texture_descriptions = this.extractTextureDescFromResponses(this.textureResponses);
-
-        this.updateEffect(texture_descriptions);
-    };
-
-    this.updateEffect = function(texture_descriptions) {
-        // NOTE: When adding an overlay the best way is to completely reset the blend effect
-        // and add _all_ textures again. This has the advantage that opacity changes of existing
-        // overlays are incorporated. Otherwise the update in the underlying shader code causes
-        // existing layers to be reset to their initial opacity.
-        // The opacity tracking mechanism for existing overlays is implemented in the
-        // 'setTransparencyFor' function.
-        this.textureBlendEffect.reset();
-        for (var idx = 0; idx < texture_descriptions.length; idx++) {
-            var desc = texture_descriptions[idx];
-            this.textureBlendEffect.addTextureFromDesc(desc);
-        };
-        this.textureBlendEffect.commitChanges();
-    };
-
-    /**
-     * Overwrites function from base terrain class. Sets the transparency in the shader.
-     * @param value - Transparency value between 0 (full visible) and 1 (invisible).
-     */
-    this.setTransparencyFor = function(texture_id, value) {
-        var transparencyFieldId = this.name + '_transparency_for_' + texture_id;
-        var transparencyFN = document.getElementById(transparencyFieldId);
-
-        if (transparencyFN) {
-            transparencyFN.setAttribute('value', String(1.0 - value));
-            var textureResponse = _.find(this.textureResponses, function(texture) {
-                return texture.layerInfo.id === texture_id;
-            });
-            if (textureResponse) {
-                textureResponse.layerInfo.opacity = 1.0 - value;
-            } else {
-                console.error('[LODTerrainWithOverlays::setTransparencyFor] cannot find textureResponse "' + texture_id + '". This should not happen!');
-            }
-        } else {
-            console.log('RBV.Visualization.LODTerrainWithOverlays: Cannot find transparency field: ' + transparencyFieldId);
-        }
-    };
-
-    this.extractTextureDescFromResponses = function(responses) {
-        var texture_descriptions = [];
-        for (var idx = 0; idx < responses.length; idx++) {
-            var textureData = responses[idx].texture;
-            var textureEl = this.createCanvas(textureData, this.index, this.noDataValue, false);
-
-            texture_descriptions.push({
-                id: responses[idx].layerInfo.id,
-                opacity: responses[idx].layerInfo.opacity,
-                textureEl: textureEl
-            });
-        };
-
-        return texture_descriptions;
-    };
+RBV.Renderer.VizModule.LODTerrainWithOverlays.prototype.reset = function() {
+    EarthServerGenericClient.MainScene.removeModelCallbacks(this.index);
 };
 
-RBV.Visualization.LODTerrainWithOverlays.inheritsFrom(EarthServerGenericClient.AbstractTerrain);
+RBV.Renderer.VizModule.LODTerrainWithOverlays.prototype.addOverlays = function(serverResponses) {
+    this.textureDescs = this.textureDescs.concat(this.extractTextureDescFromResponses(serverResponses));
+    this.updateEffect();
+};
+
+RBV.Renderer.VizModule.LODTerrainWithOverlays.prototype.removeOverlayById = function(id) {
+    var textureDescription = _.find(this.textureDescs, function(desc) {
+        return desc.id === id;
+    });
+
+    if (!textureDescription) {
+        return;
+    }
+
+    this.textureDescs = _.without(this.textureDescs, textureDescription);
+
+    this.updateEffect();
+};
+
+RBV.Renderer.VizModule.LODTerrainWithOverlays.prototype.updateEffect = function() {
+    // NOTE: When adding an overlay the best way is to completely reset the blend effect
+    // and add _all_ textures again. This has the advantage that opacity changes of existing
+    // overlays are incorporated. Otherwise the update in the underlying shader code causes
+    // existing layers to be reset to their initial opacity.
+    // The opacity tracking mechanism for existing overlays is implemented in the
+    // 'setTransparencyFor' function.
+    this.textureBlendEffect.reset();
+    for (var idx = 0; idx < this.textureDescs.length; idx++) {
+        var desc = this.textureDescs[idx];
+        this.textureBlendEffect.addTextureFromDesc(desc);
+    };
+    this.textureBlendEffect.commitChanges();
+};
+
+/**
+ * Overwrites function from base terrain class. Sets the transparency in the shader.
+ * @param value - Transparency value between 0 (full visible) and 1 (invisible).
+ */
+RBV.Renderer.VizModule.LODTerrainWithOverlays.prototype.setTransparencyFor = function(texture_id, value) {
+    var transparencyFieldId = this.name + '_transparency_for_' + texture_id;
+    var transparencyFN = document.getElementById(transparencyFieldId);
+
+    if (transparencyFN) {
+        transparencyFN.setAttribute('value', String(1.0 - value));
+        var textureDesc = _.find(this.textureDescs, function(desc) {
+            return desc.id === texture_id;
+        });
+        if (textureDesc) {
+            textureDesc.opacity = 1.0 - value;
+        } else {
+            console.error('[LODTerrainWithOverlays::setTransparencyFor] cannot find textureResponse "' + texture_id + '". This should not happen!');
+        }
+    } else {
+        console.log('RBV.Renderer.VizModule.LODTerrainWithOverlays: Cannot find transparency field: ' + transparencyFieldId);
+    }
+};
+
+RBV.Renderer.VizModule.LODTerrainWithOverlays.prototype.extractTextureDescFromResponses = function(responses) {
+    var texture_descriptions = [];
+    for (var idx = 0; idx < responses.length; idx++) {
+        var textureData = responses[idx].texture;
+        var textureEl = this.createCanvas(textureData, this.index, this.noDataValue, false);
+
+        texture_descriptions.push({
+            id: responses[idx].layerInfo.id,
+            opacity: responses[idx].layerInfo.opacity,
+            textureEl: textureEl
+        });
+    };
+
+    return texture_descriptions;
+};
