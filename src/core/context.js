@@ -20,6 +20,7 @@ RBV.Context = function(opts) {
 
 	this.layers = {};
 };
+_.extend(RBV.Context.prototype, Backbone.Events);
 
 RBV.Context.prototype.reset = function() {
 	this.layers = {};
