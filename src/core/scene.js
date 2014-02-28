@@ -29,6 +29,8 @@ RBV.Scene = function(opts) {
 // would solve the problem, as then the abstraction layer takes care of the
 // mimetype handling, not the model itself.
 RBV.Scene.prototype.addModel = function(model, providers) {
+	model.applyContext(this.context);
+
 	for (var idx = 0; idx < providers.length; idx++) {
 		var mimeTypeHandlers = providers[idx].getMimeTypeHandlers();
 		for (var key in mimeTypeHandlers) {

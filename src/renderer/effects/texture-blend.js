@@ -49,12 +49,27 @@ RBV.Renderer.Effects.TextureBlend.prototype.reset = function(desc) {
 };
 
 RBV.Renderer.Effects.TextureBlend.prototype.addTextureFromDesc = function(desc) {
-	this._textureDescs.push(desc);
+	// FIXXME: integrate desc.transform, to be able to cleanup when removing a texture!
+	this._textureDescs.push({
+		id: desc.id,
+		textureEl: desc.textureEl,
+		opacity: desc.opacity,
+		transform: desc.transform
+	});
 };
 
 RBV.Renderer.Effects.TextureBlend.prototype.commitChanges = function() {
-	this._updateShaderNode();
+	this._textureDescs = _.sortBy(this._textureDescs, function(desc) {
+		return desc.ordinal
+	});
+	this._textureDescs.reverse();
 	this._updateMultiTextureNode();
+	this._updateShaderNode();
+
+	console.log('[RBV.Renderer.Effects.TextureBlend.TextureBlend] Texturestack:');
+	_.forEach(this._textureDescs, function(desc, idx) {
+		console.log('  * ordinal: ' + desc.ordinal + ' / id: ' + desc.id);
+	})
 };
 
 RBV.Renderer.Effects.TextureBlend.prototype.appearance = function() {
@@ -72,12 +87,6 @@ RBV.Renderer.Effects.TextureBlend.prototype._updateMultiTextureNode = function()
 	// FIXXME: rethink sideeffects regarding removeFromDOM/appendMultiTexture/replaceMultiTexture!
 	// For now it is working and properly encapsulated...
 	this._multiTextureN.removeFromDOM();
-
-	this._textureDescs = _.sortBy(this._textureDescs, function(desc) {
-		return desc.ordinal
-	});
-
-	this._multiTextureN = new RBV.Renderer.Nodes.MultiTexture();
 	for (var idx = 0; idx < this._textureDescs.length; idx++) {
 		var desc = this._textureDescs[idx];
 
@@ -184,7 +193,7 @@ RBV.Renderer.Effects.TextureBlend.prototype._createFragmentShaderCode = function
 	// fragmentCode += '  gl_FragColor = vec4(0,0,1.0,1); \n';
 	fragmentCode += '} \n';
 
-	console.log('fragmentCode:\n' + fragmentCode);
+	// console.log('fragmentCode:\n' + fragmentCode);
 
 	return fragmentCode;
 };

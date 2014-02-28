@@ -12,14 +12,14 @@ RBV.Renderer.Components = RBV.Renderer.Components || {};
  */
 // root, data, index, noDataValue, noDemValue
 RBV.Renderer.Components.LODTerrainWithOverlays = function(opts) {
-    this.data = opts.demResponse;
+    this.data = opts.terrainLayer;
     this.index = opts.index;
     this.noData = opts.noDataValue;
     this.noDemValue = opts.noDemValue;
     this.root = opts.root;
     this.name = opts.id + this.index;
 
-    this.textureDescs = this.extractTextureDescFromResponses(opts.textureResponses);
+    this.textureDescs = this.extractTextureDesc(opts.imageryLayers);
 
     /**
      * Distance to change between full and 1/2 resolution.
@@ -121,7 +121,7 @@ RBV.Renderer.Components.LODTerrainWithOverlays.prototype.reset = function() {
 };
 
 RBV.Renderer.Components.LODTerrainWithOverlays.prototype.addOverlays = function(serverResponses) {
-    this.textureDescs = this.textureDescs.concat(this.extractTextureDescFromResponses(serverResponses));
+    this.textureDescs = this.textureDescs.concat(this.extractTextureDesc(serverResponses));
     this.updateEffect();
 };
 
@@ -176,16 +176,16 @@ RBV.Renderer.Components.LODTerrainWithOverlays.prototype.setTransparencyFor = fu
     }
 };
 
-RBV.Renderer.Components.LODTerrainWithOverlays.prototype.extractTextureDescFromResponses = function(responses) {
+RBV.Renderer.Components.LODTerrainWithOverlays.prototype.extractTextureDesc = function(layers) {
     var texture_descriptions = [];
-    for (var idx = 0; idx < responses.length; idx++) {
-        var textureData = responses[idx].texture;
+    for (var idx = 0; idx < layers.length; idx++) {
+        var textureData = layers[idx].texture;
         var textureEl = this.createCanvas(textureData, this.index, this.noDataValue, false);
 
         texture_descriptions.push({
-            id: responses[idx].layerInfo.id,
-            opacity: responses[idx].layerInfo.opacity,
-            ordinal: responses[idx].layerInfo.ordinal,
+            id: layers[idx].layerInfo.id,
+            opacity: layers[idx].layerInfo.opacity,
+            ordinal: layers[idx].layerInfo.ordinal,
             textureEl: textureEl
         });
     };
