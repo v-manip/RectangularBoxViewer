@@ -51,52 +51,6 @@ RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
     // Take the first available terrain layer:
     this.terrainLayer = terrainLayers[0];
     this.imageryLayers = context.getSelectedLayersByType('imagery', this.supportsLayer);
-
-    // _.each(selectedLayers, function(layer, idx) {
-    //     this.modelTerrainWithOverlay.addImageLayer(layer);
-    // }.bind(this));
-
-    // // Get the currently selected layers and setup the model accordingly:
-    // var selectedLayers = [];
-
-    // // Initially create the imagery layer based on the currently selected layers:
-    // var model_descs = this.getModelsForSelectedLayers(this.supportsLayer);
-    // _.forEach(model_descs, function(desc, key) {
-    //     var layer = null;
-    //     var model = desc.model;
-    //     if (desc.type === 'baselayer') {
-    //         // Find compatible baselayer protocol:
-    //         var view = _.find(model.get('views'), function(view) {
-    //             return view.protocol.toUpperCase() === 'WMS';
-    //         });
-
-    //         layer = new VMANIP.Layers.WMS({
-    //             id: view.id,
-    //             urls: view.urls,
-    //             crs: 'EPSG:4326',
-    //             format: view.format.replace('image/', ''),
-    //             transparent: 'false',
-    //             // FIXXME: '0' would be more intuitive, however, that goes against the necessary ordering in the TextureBlend effect
-    //             ordinal: 10000, // A base layer is always the most bottom layer.
-    //             opacity: 1 //model.get('opacity')
-    //         });
-    //     } else {
-    //         layer = new VMANIP.Layers.WMS({
-    //             id: model.get('view').id,
-    //             urls: model.get('view').urls,
-    //             crs: 'EPSG:4326',
-    //             format: model.get('view').format.replace('image/', ''),
-    //             transparent: 'true',
-    //             ordinal: model.get('ordinal'),
-    //             opacity: model.get('opacity')
-    //         });
-    //     }
-    //     selectedLayers.push(layer);
-    // });
-
-    // _.each(selectedLayers, function(layer, idx) {
-    //     this.modelTerrainWithOverlay.addImageLayer(layer);
-    // }.bind(this));
 }
 
 RBV.Models.DemWithOverlays.prototype.reset = function() {
@@ -283,7 +237,7 @@ RBV.Models.DemWithOverlays.prototype.receiveData = function(serverResponses) {
             // but things will improve soon ;-)
             var layers = this.createLayersFromServerResponses(serverResponses);
 
-            var transform = this.createTransformInSceneBox(layers.terrain);
+            var transform = this.createTransformInScene(layers.terrain);
             this.root.appendChild(transform);
 
             this.terrain = new RBV.Renderer.Components.LODTerrainWithOverlays({
@@ -332,7 +286,7 @@ RBV.Models.DemWithOverlays.prototype.createLayersFromServerResponses = function(
     };
 }
 
-RBV.Models.DemWithOverlays.prototype.createTransformInSceneBox = function(terrainLayer) {
+RBV.Models.DemWithOverlays.prototype.createTransformInScene = function(terrainLayer) {
     var YResolution = this.YResolution || (parseFloat(terrainLayer.maxHMvalue) - parseFloat(terrainLayer.minHMvalue));
     var boxTransform = this.createTransform(terrainLayer.width, YResolution, terrainLayer.height, parseFloat(terrainLayer.minHMvalue), terrainLayer.minXvalue, terrainLayer.minZvalue);
 

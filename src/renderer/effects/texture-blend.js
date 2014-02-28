@@ -54,6 +54,7 @@ RBV.Renderer.Effects.TextureBlend.prototype.addTextureFromDesc = function(desc) 
 		id: desc.id,
 		textureEl: desc.textureEl,
 		opacity: desc.opacity,
+		ordinal: desc.ordinal,
 		transform: desc.transform
 	});
 };
@@ -62,7 +63,8 @@ RBV.Renderer.Effects.TextureBlend.prototype.commitChanges = function() {
 	this._textureDescs = _.sortBy(this._textureDescs, function(desc) {
 		return desc.ordinal
 	});
-	this._textureDescs.reverse();
+	// this._textureDescs.reverse();
+
 	this._updateMultiTextureNode();
 	this._updateShaderNode();
 
@@ -193,7 +195,7 @@ RBV.Renderer.Effects.TextureBlend.prototype._createFragmentShaderCode = function
 	// fragmentCode += '  gl_FragColor = vec4(0,0,1.0,1); \n';
 	fragmentCode += '} \n';
 
-	// console.log('fragmentCode:\n' + fragmentCode);
+	console.log('fragmentCode:\n' + fragmentCode);
 
 	return fragmentCode;
 };
