@@ -44,16 +44,38 @@ RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
 
     this.context = context;
 
-    var terrainLayers = context.getLayersByType('terrain');
+    var terrainLayers = this.context.getLayersByType('terrain');
     if (!terrainLayers.length) {
         throw "[RBV.Models.DemWithOverlays] Context has no 'terrain' layer. Aborting!";
     }
     // Take the first available terrain layer:
     this.terrainLayer = terrainLayers[0];
-    this.imageryLayers = context.getSelectedLayersByType('imagery', this.supportsLayer);
+    this.imageryLayers = this.context.getSelectedLayersByType('imagery', this.supportsLayer);
+
+    //Register to context relevant changes: 
+    _.forEach(this.imageryLayers, function(layer) {
+        layer.on('change:opacity', this.onOpacityChange, this);
+    }.bind(this));
+
+    // TODO: Listening on all layers is also possible, but not so efficient, I guess:
+    // this.context.on('change:layer:opacity', function(layer, opacity) {
+    //     console.log('visibility: ' + layer.get('id'));
+    //     console.log('visibility: ' + opacity);
+    // });
+
+    this.context.on('change:layer:visibility', function(layer, visibility) {
+        this.addImageLayer(layer);
+        console.log('visibility: ' + layer.get('id'));
+        console.log('visibility: ' + visibility);
+    }.bind(this));
 }
 
 RBV.Models.DemWithOverlays.prototype.reset = function() {
+    // Remove context change handler:
+    _.forEach(this.imageryLayers, function(layer) {
+        layer.off('change:opacity', this.onOpacityChange);
+    }.bind(this));
+
     this.terrainLayer = null;
     this.imageryLayers = [];
 
@@ -63,10 +85,15 @@ RBV.Models.DemWithOverlays.prototype.reset = function() {
     }
 
     // FIXXME: this removes ALL models, which is not what we want...
+    // FIXXME: resetScene() internally also does a cleanup for this.terrain. Take this into account!
     EarthServerGenericClient.MainScene.resetScene();
     this.setDefaults();
     this.isReset = true;
 }
+
+RBV.Models.DemWithOverlays.prototype.onOpacityChange = function(layer, value) {
+    this.terrain.setTransparencyFor(layer.get('id'), (1 - value));
+};
 
 /**
  * Sets the terrain layer.
@@ -101,7 +128,7 @@ RBV.Models.DemWithOverlays.prototype.removeImageLayerById = function(id) {
     });
 
     if (layer) {
-        layer.off('change:opacity');
+        layer.off('change:opacity', this.onOpacityChange);
         var idx = _.indexOf(this.imageryLayers, layer);
         this.imageryLayers.splice(idx, 1);
     } else {
@@ -110,6 +137,7 @@ RBV.Models.DemWithOverlays.prototype.removeImageLayerById = function(id) {
 
     if (this.terrain) {
         this.terrain.removeOverlayById(id);
+
     }
 };
 
@@ -135,19 +163,6 @@ RBV.Models.DemWithOverlays.prototype.update = function(hasNewData) {
     }
 }
 
-RBV.Models.DemWithOverlays.prototype.setTransparencyFor = function(id, value) {
-    // Find corresponding layer:
-    var layer = _.find(this.imageryLayers, function(layer) {
-        return layer.get('id') === id;
-    });
-
-    if (layer) {
-        // FIXXME: the attribute is set here, its change event triggers the function registered
-        // in 'addImageLayer'. Are there any advantages in calling terrain.setTransparencyFor()
-        // here directly?
-        layer.set('opacity', value);
-    }
-};
 /**
  * Creates the x3d geometry and appends it to the given root node. This is done automatically by the SceneManager.
  * @param root - X3D node to append the model.
