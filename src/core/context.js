@@ -133,6 +133,18 @@ RBV.Context.prototype.legacyGetModelDescsFromGlobalContext = function(type, filt
 	return models_desc;
 }
 
+RBV.Context.prototype.getAllLayers = function() {
+	var layers = [];
+
+	_.forEach(this.layers, function(group) {
+		_.forEach(group, function(layer) {
+			layers.push(layer);
+		})
+	});
+
+	return layers;
+}
+
 RBV.Context.prototype.updateLayerOpacity = function(id, value) {
 	var layer = this.getLayerById(id, 'imagery');
 	layer.set('opacity', value);
