@@ -65,8 +65,6 @@ RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
 
     this.context.on('change:layer:visibility', function(layer, visibility) {
         this.addImageLayer(layer);
-        console.log('visibility: ' + layer.get('id'));
-        console.log('visibility: ' + visibility);
     }.bind(this));
 }
 
@@ -74,8 +72,12 @@ RBV.Models.DemWithOverlays.prototype.reset = function() {
     // Remove context change handler:
     _.forEach(this.imageryLayers, function(layer) {
         layer.off('change:opacity', this.onOpacityChange);
+        layer.set('isUpToDate', false);
     }.bind(this));
 
+    if (this.terrainLayer) {
+        this.terrainLayer.set('isUpToDate', false);
+    }
     this.terrainLayer = null;
     this.imageryLayers = [];
 
