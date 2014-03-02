@@ -57,14 +57,13 @@ RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
         layer.on('change:opacity', this.onOpacityChange, this);
     }.bind(this));
 
-    // TODO: Listening on all layers is also possible, but not so efficient, I guess:
-    // this.context.on('change:layer:opacity', function(layer, opacity) {
-    //     console.log('visibility: ' + layer.get('id'));
-    //     console.log('visibility: ' + opacity);
-    // });
-
-    this.context.on('change:layer:visibility', function(layer, visibility) {
-        this.addImageLayer(layer);
+    this.context.on('change:layer:visibility', function(layer, isVisible) {
+        console.log('[Models.DemWithOverlays] layer visibility: id: ' + layer.get('id') + ' /  visible: ' + isVisible);
+        if (isVisible) {
+            this.addImageLayer(layer);
+        } else {
+            this.removeImageLayerById(layer.get('id'));
+        }
     }.bind(this));
 }
 
@@ -72,10 +71,14 @@ RBV.Models.DemWithOverlays.prototype.reset = function() {
     // Remove context change handler:
     _.forEach(this.imageryLayers, function(layer) {
         layer.off('change:opacity', this.onOpacityChange);
+        // FIXXME: add a dedicated cache that handles the 'upToDate' logic. A layer itself
+        // should implement a 'state' flag, e.g. 'loading', 'data available', ...
         layer.set('isUpToDate', false);
     }.bind(this));
 
     if (this.terrainLayer) {
+        // FIXXME: add a dedicated cache that handles the 'upToDate' logic. A layer itself
+        // should implement a 'state' flag, e.g. 'loading', 'data available', ...
         this.terrainLayer.set('isUpToDate', false);
     }
     this.terrainLayer = null;
@@ -131,6 +134,9 @@ RBV.Models.DemWithOverlays.prototype.removeImageLayerById = function(id) {
 
     if (layer) {
         layer.off('change:opacity', this.onOpacityChange);
+        // FIXXME: add a dedicated cache that handles the 'upToDate' logic. A layer itself
+        // should implement a 'state' flag, e.g. 'loading', 'data available', ...
+        layer.set('isUpToDate', false);
         var idx = _.indexOf(this.imageryLayers, layer);
         this.imageryLayers.splice(idx, 1);
     } else {
@@ -208,12 +214,17 @@ RBV.Models.DemWithOverlays.prototype.requestData = function() {
     // Convert the original Backbone.Model layers to 'plain-old-data' javascript objects:
     var layerRequests = [];
     _.each(this.imageryLayers, function(layer, idx) {
+        // FIXXME: add a dedicated cache that handles the 'upToDate' logic. A layer itself
+        // should implement a 'state' flag, e.g. 'loading', 'data available', ...
+        console.log('is cached: ' + layer.get('isUpToDate'));
         if (!layer.get('isUpToDate')) {
             layer.set('isUpToDate', true);
             layerRequests.push(layer.toJSON());
         }
     });
 
+    // FIXXME: add a dedicated cache that handles the 'upToDate' logic. A layer itself
+    // should implement a 'state' flag, e.g. 'loading', 'data available', ...
     if (!this.terrainLayer.get('isUpToDate')) {
         this.terrainLayer.set('isUpToDate', true);
         layerRequests.push(this.terrainLayer.toJSON());

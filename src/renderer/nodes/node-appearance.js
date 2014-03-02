@@ -5,6 +5,8 @@ RBV.Renderer.Nodes.Appearance = RBV.Renderer.Nodes.Base.extend({
 	tagName: 'Appearance',
 
 	initialize: function(opts) {
+		this.id = opts.id;
+
 		if (opts.transparency === 0) {
 			this.el.setAttribute('sortType', 'opaque');
 		} else {

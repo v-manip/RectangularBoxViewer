@@ -9,7 +9,7 @@ RBV.Renderer.Effects.TextureBlend = function(opts) {
 	this._textureDescs = [];
 
 	this._id = opts.id || 'Effect::TextureBlend';
-
+	this.idx = 0;
 	this._options = opts;
 
 	this._setup();
@@ -28,17 +28,18 @@ RBV.Renderer.Effects.TextureBlend.prototype._setup = function() {
 		scene.appendChild(this._appearanceN.el);
 	};
 
-	// this._materialN = new RBV.Renderer.Nodes.Material({
-	// 	specularColor: this._options.material.specular,
-	// 	diffuseColor: this._options.material.diffuse,
-	// 	transparency: this._options.material.transparency
-	// });
-	// this._appearanceN.appendChild(this._materialN);
+	this._materialN = new RBV.Renderer.Nodes.Material({
+		specularColor: this._options.material.specular,
+		diffuseColor: this._options.material.diffuse,
+		transparency: this._options.material.transparency
+	});
 
 	this._multiTextureN = new RBV.Renderer.Nodes.MultiTexture();
-	this._appearanceN.appendMultiTexture(this._multiTextureN);
-
 	this._shaderN = new RBV.Renderer.Nodes.Shader();
+
+	// this._appearanceN.appendChild(this._materialN);
+	// this._appearanceN.appendMultiTexture(this._multiTextureN);
+	// this._appearanceN.appendShader(this._shaderN);
 };
 
 RBV.Renderer.Effects.TextureBlend.prototype.reset = function(desc) {
@@ -46,6 +47,16 @@ RBV.Renderer.Effects.TextureBlend.prototype.reset = function(desc) {
 	// The appearance internally resets this._shaderN and this._multiTextureN
 	// as a 'sideeffect':
 	this._appearanceN.reset();
+	// this.idx = 0;
+
+	// this._multiTextureN.removeFromDOM();
+	// this._shaderN.removeFromDOM();
+	// this._appearanceN.removeFromDOM();
+
+	// this._setup();
+	// this._materialN = null;
+	// this._shaderN = null;
+	// this._multiTextureN = null;
 };
 
 RBV.Renderer.Effects.TextureBlend.prototype.addTextureFromDesc = function(desc) {
@@ -55,8 +66,10 @@ RBV.Renderer.Effects.TextureBlend.prototype.addTextureFromDesc = function(desc) 
 		textureEl: desc.textureEl,
 		opacity: desc.opacity,
 		ordinal: desc.ordinal,
-		transform: desc.transform
+		transform: desc.transform,
+		idx: this.idx
 	});
+	++this.idx;
 };
 
 RBV.Renderer.Effects.TextureBlend.prototype.commitChanges = function() {
@@ -89,8 +102,16 @@ RBV.Renderer.Effects.TextureBlend.prototype._updateMultiTextureNode = function()
 	// FIXXME: rethink sideeffects regarding removeFromDOM/appendMultiTexture/replaceMultiTexture!
 	// For now it is working and properly encapsulated...
 	this._multiTextureN.removeFromDOM();
+
+	// if (this._multiTextureN.el.parentNode) {
+	// 	this._appearanceN.el.removeChild(this._multiTextureN.el);
+	// 	this._multiTextureN.el = document.createElement('multitexture');
+	// }
+
 	for (var idx = 0; idx < this._textureDescs.length; idx++) {
 		var desc = this._textureDescs[idx];
+
+		console.log('[TextureBlend._updateMultiTextureNode] adding texture: ' + desc.id);
 
 		// FIXXME: 'texture' parameter should support type RBV.Renderer.Nodes.Texture for consistency!
 		this._multiTextureN.addTexture(new RBV.Renderer.Nodes.Texture({
@@ -108,6 +129,12 @@ RBV.Renderer.Effects.TextureBlend.prototype._updateShaderNode = function() {
 	// FIXXME: rethink sideeffects regarding removeFromDOM/appendShader/replaceShader!
 	// For now it is working and properly encapsulated...
 	this._shaderN.removeFromDOM();
+
+	// if (this._shaderN.el.parentNode) {
+	// 	this._appearanceN.el.removeChild(this._shaderN.el);
+	// 	this._shaderN.el = document.createElement('compositeshader');
+	// }
+
 	this._shaderN.setVertexCode(this._createVertexShaderCode());
 	this._shaderN.setFragmentCode(this._createFragmentShaderCode());
 
@@ -125,7 +152,7 @@ RBV.Renderer.Effects.TextureBlend.prototype._updateShaderNode = function() {
 			id: this._id + '_texture_for_' + desc.id,
 			name: 'tex_' + desc.id,
 			type: 'SFFloat',
-			value: idx
+			value: desc.idx
 		});
 	}
 
@@ -181,6 +208,21 @@ RBV.Renderer.Effects.TextureBlend.prototype._createFragmentShaderCode = function
 	fragmentCode += '}                                                          \n';
 
 	fragmentCode += 'void main() { \n';
+	// for (var idx = 0; idx < this._textureDescs.length; idx++) {
+	// 	var desc = this._textureDescs[idx];
+	// 	if (idx === 0) {
+	// 		fragmentCode += '  vec4 color' + idx + ' = vec4(1,0,0,1); \n';
+	// 	} else {
+	// 		fragmentCode += '  vec4 color' + idx + ' = vec4(0,1,0,1); \n';
+	// 	}
+	// 	fragmentCode += '  color' + idx + ' = color' + idx + ' * transparency_' + desc.id + '; \n';
+	// 	if (idx == 0) {
+	// 		fragmentCode += '  vec4 colorOnTop = color0; \n';
+	// 	} else {
+	// 		fragmentCode += '  colorOnTop = alphaBlend(colorOnTop, color' + idx + '); \n';
+	// 	}
+	// }
+
 	for (var idx = 0; idx < this._textureDescs.length; idx++) {
 		var desc = this._textureDescs[idx];
 		fragmentCode += '  vec4 color' + idx + ' = texture2D(tex_' + desc.id + ', fragTexCoord); \n';
