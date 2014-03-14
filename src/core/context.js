@@ -37,36 +37,28 @@ RBV.Context.prototype.legacyCreateLayersFromGlobalContext = function() {
 	_.forEach(model_descs, function(desc) {
 		var layer = null;
 		var model = desc.model;
-		if (desc.type === 'baselayer') {
-			// Find compatible baselayer protocol:
-			var view = _.find(model.get('views'), function(view) {
-				return view.protocol.toUpperCase() === 'WMS';
-			});
 
+		// NOTE: Currently we only take into account 'WMS' layers for the RBV:
+		var view = _.find(model.get('views'), function(view) {
+			return view.protocol.toUpperCase() === 'WMS';
+		});
+
+		if (view) {
 			layer = new VMANIP.Layers.WMS({
 				id: view.id,
 				urls: view.urls,
 				crs: 'EPSG:4326',
 				format: view.format.replace('image/', ''),
-				transparent: 'false',
-				// FIXXME: '0' would be more intuitive, however, that goes against the necessary ordering in the TextureBlend effect
-				ordinal: 10000, // A base layer is always the most bottom layer.
-				opacity: 1,
-				baselayer: true //model.get('opacity')
-			});
-		} else {
-			layer = new VMANIP.Layers.WMS({
-				id: model.get('view').id,
-				urls: model.get('view').urls,
-				crs: 'EPSG:4326',
-				format: model.get('view').format.replace('image/', ''),
 				transparent: 'true',
-				ordinal: model.get('ordinal'),
-				opacity: model.get('opacity'),
-				baselayer: false
+				// FIXXME: '0' would be more intuitive, however, that goes against the necessary ordering in the TextureBlend effect
+				ordinal: (desc.type === 'baselayer') ? 10000 : model.get('ordinal'), // A base layer is always the most bottom layer.
+				opacity: (desc.type === 'baselayer') ? 1 : model.get('opacity'),
+				baselayer: (desc.type === 'baselayer') ? true : false
 			});
+			
+			layers['imagery'].push(layer);
+			console.log('added layer: ' + layer.id);
 		}
-		layers['imagery'].push(layer);
 	});
 
 	return layers;
@@ -259,9 +251,16 @@ RBV.Context.prototype.getSelectedLayersByType = function(type, filter) {
 	var selectedLayers = [];
 
 	_.forEach(models_desc, function(desc) {
-		var layer = this.getLayerById(desc.model.get('view').id, 'imagery');
-		console.log('added: ' + layer.get('id'));
-		selectedLayers.push(layer);
+		// FIXXME: Currently we only take into account 'WMS' layers:
+		var view = _.find(desc.model.get('views'), function(view) {
+			return view.protocol.toUpperCase() === 'WMS';
+		});
+
+		if (view) {
+			var layer = this.getLayerById(view.id, 'imagery');
+			console.log('added: ' + layer.get('id'));
+			selectedLayers.push(layer);
+		}
 	}.bind(this));
 
 	return selectedLayers;

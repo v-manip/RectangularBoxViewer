@@ -15,28 +15,20 @@ RBV.Models.DemWithOverlays = function() {
     this.context = null;
     this.terrainLayer = null;
     this.imageryLayers = [];
+    // There is none or exactly one base layer in this model:
+    this.baseLayer = null;
 
     this.terrain = null;
 };
 RBV.Models.DemWithOverlays.inheritsFrom(EarthServerGenericClient.AbstractSceneModel);
 
 RBV.Models.DemWithOverlays.prototype.supportsLayer = function(model) {
-    if (model.get('view').isBaseLayer) {
-        console.log('SKIPPING REQUEST!!!');
-        return false;
-        var views = model.get('views');
-        var isSupported = false;
-        for (var idx = 0; idx < views.length; idx++) {
-            var view = views[idx];
-            if (view.protocol.toUpperCase() === 'WMS') {
-                isSupported = true;
-                break;
-            }
-        };
-        return isSupported;
-    } else {
-        return (model.get('view').protocol.toUpperCase() === 'WMS') ? true : false;
-    }
+    // NOTE: Currently we only take into account 'WMS' layers for the RBV:
+    var view = _.find(model.get('views'), function(view) {
+        return view.protocol.toUpperCase() === 'WMS';
+    });
+
+    return (view) ? true : false;
 }
 
 RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
@@ -52,6 +44,11 @@ RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
     this.terrainLayer = terrainLayers[0];
     this.imageryLayers = this.context.getSelectedLayersByType('imagery', this.supportsLayer);
 
+    // FIXXME: Currently it is necessary here to split out an eventual base layer manually:
+    this.baseLayer = _.find(this.imageryLayers, function(layer) {
+        return layer.get('baselayer') === true;
+    })
+
     //Register to context relevant changes: 
     _.forEach(this.imageryLayers, function(layer) {
         layer.on('change:opacity', this.onOpacityChange, this);
@@ -64,7 +61,11 @@ RBV.Models.DemWithOverlays.prototype.applyContext = function(context) {
     // });
 
     this.context.on('change:layer:visibility', function(layer, visibility) {
-        this.addImageLayer(layer);
+        if (visibility) {
+            this.addImageLayer(layer);
+        } else {
+            this.removeImageLayerById(layer.get('id'));
+        }
     }.bind(this));
 }
 
@@ -114,6 +115,15 @@ RBV.Models.DemWithOverlays.prototype.addTerrainLayer = function(layer) {
 RBV.Models.DemWithOverlays.prototype.addImageLayer = function(layer) {
     this.imageryLayers.push(layer);
 
+    if (layer.get('baselayer')) {
+        // If a base layer already exists, remove it first. There can only be
+        // a single base layer at a time:
+        if (this.baseLayer) {
+            this.removeImageLayerById(this.baseLayer.get('id'));
+        }
+        this.baseLayer = layer;
+    }
+
     // Connect to transparency change events:
     layer.on('change:opacity', function(layer, value) {
         this.terrain.setTransparencyFor(layer.get('id'), (1 - value));
@@ -130,6 +140,9 @@ RBV.Models.DemWithOverlays.prototype.removeImageLayerById = function(id) {
     });
 
     if (layer) {
+        // FIXXME: reseting the layer here is not the best place!
+        layer.set('isUpToDate', false);
+        
         layer.off('change:opacity', this.onOpacityChange);
         var idx = _.indexOf(this.imageryLayers, layer);
         this.imageryLayers.splice(idx, 1);
@@ -139,7 +152,6 @@ RBV.Models.DemWithOverlays.prototype.removeImageLayerById = function(id) {
 
     if (this.terrain) {
         this.terrain.removeOverlayById(id);
-
     }
 };
 
