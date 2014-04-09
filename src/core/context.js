@@ -56,6 +56,10 @@ RBV.Context.prototype.legacyCreateLayersFromGlobalContext = function() {
 				baselayer: (desc.type === 'baselayer') ? true : false
 			});
 			
+			if (view.version) {
+				layer.set('version', view.version);
+			}
+
 			layers['imagery'].push(layer);
 			console.log('added layer: ' + layer.id);
 		}
