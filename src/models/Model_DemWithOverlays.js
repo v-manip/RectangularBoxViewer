@@ -29,7 +29,8 @@ RBV.Models.DemWithOverlays.prototype.supportsLayer = function(model) {
     });
 
     // FIXXME: quick hack for 'fha-demo-polish' branch. Remove later on!
-    if (view && view.id === 'vrvis_demo_outlines') {
+    if (view && view.id.indexOf('_outline') !== -1) {
+        console.log('Skipping ' + view.id + ' layer for RBV');
         return false; // Skip this layer...
     }
 
