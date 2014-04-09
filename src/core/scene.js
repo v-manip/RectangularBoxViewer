@@ -65,7 +65,7 @@ RBV.Scene.prototype.show = function() {
 	this.model.setAreaOfInterest(this.context.aoi[0], this.context.aoi[1], this.context.aoi[2], this.context.aoi[3], this.context.aoi[4], this.context.aoi[5]);
 	this.model.setTimespan(this.context.toi);
 	// this.model.setOffset(0, 0.2, 0);
-	// this.model.setScale(1, 3, 1);
+	this.model.setScale(1, 0.1, 1);
 
 	// create the viewer: Cube has 60% height compared to width and length
 	// EarthServerGenericClient.MainScene.createScene('x3dScene', 'theScene', 1, 0.6, 1);
