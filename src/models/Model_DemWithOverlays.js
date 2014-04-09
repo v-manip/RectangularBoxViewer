@@ -28,6 +28,11 @@ RBV.Models.DemWithOverlays.prototype.supportsLayer = function(model) {
         return view.protocol.toUpperCase() === 'WMS';
     });
 
+    // FIXXME: quick hack for 'fha-demo-polish' branch. Remove later on!
+    if (view && view.id === 'vrvis_demo_outlines') {
+        return false; // Skip this layer...
+    }
+
     return (view) ? true : false;
 }
 
@@ -142,7 +147,7 @@ RBV.Models.DemWithOverlays.prototype.removeImageLayerById = function(id) {
     if (layer) {
         // FIXXME: reseting the layer here is not the best place!
         layer.set('isUpToDate', false);
-        
+
         layer.off('change:opacity', this.onOpacityChange);
         var idx = _.indexOf(this.imageryLayers, layer);
         this.imageryLayers.splice(idx, 1);
